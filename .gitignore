@@ -1,0 +1,25 @@
+# Entorno
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+# Vercel
+.vercel/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Herramientas / IDE
+.mypy_cache/
+.idea/
+.vscode/
+.vercel
+.env*.local
