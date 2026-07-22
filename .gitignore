@@ -23,8 +23,3 @@ dist/
 .vscode/
 .vercel
 .env*.local
-
-# Microservicios extraídos: repositorios Git propios que aún no tienen remoto.
-# Cuando cada uno tenga su repo en GitHub se quita su línea de aquí y se añade
-# como submódulo (`git submodule add <url> <carpeta>`).
-/auth-service/
