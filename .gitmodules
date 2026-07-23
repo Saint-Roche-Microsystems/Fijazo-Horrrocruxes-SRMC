@@ -4,3 +4,6 @@
 [submodule "api-gateway"]
 	path = api-gateway
 	url = https://github.com/Saint-Roche-Microsystems/API-Gateway.git
+[submodule "bets-service"]
+	path = bets-service
+	url = https://github.com/Saint-Roche-Microsystems/Bets-Service.git
