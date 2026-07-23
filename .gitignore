@@ -23,3 +23,7 @@ dist/
 .vscode/
 .vercel
 .env*.local
+
+# Microservicio en extracción: repositorio Git propio que aún no tiene remoto.
+# Cuando exista su repo en GitHub se quita esta línea y se añade como submódulo.
+/bets-service/
