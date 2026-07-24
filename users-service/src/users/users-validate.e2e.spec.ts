@@ -59,7 +59,12 @@ describe('users.validate (TCP e2e)', () => {
       .expect(201);
 
     const res = await validate(created.body.id);
-    expect(res).toEqual({ active: true, tier: 'standard' });
+    expect(res).toEqual({
+      active: true,
+      tier: 'standard',
+      locked: false,
+      locked_until: null,
+    });
   });
 
   it('refleja la desactivación en el contrato TCP', async () => {
@@ -73,11 +78,21 @@ describe('users.validate (TCP e2e)', () => {
       .expect(200);
 
     const res = await validate(created.body.id);
-    expect(res).toEqual({ active: false, tier: 'standard' });
+    expect(res).toEqual({
+      active: false,
+      tier: 'standard',
+      locked: false,
+      locked_until: null,
+    });
   });
 
   it('trata un user_id inexistente como no activo', async () => {
     const res = await validate('000000000000000000000000');
-    expect(res).toEqual({ active: false, tier: null });
+    expect(res).toEqual({
+      active: false,
+      tier: null,
+      locked: false,
+      locked_until: null,
+    });
   });
 });
