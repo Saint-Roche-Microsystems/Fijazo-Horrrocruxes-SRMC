@@ -6,15 +6,23 @@ implementación concreta, evitando acoplamiento y ciclos de import.
 
 from typing import Protocol
 
+from fijazo_api.domain.entities.bet_event import BetEvent
 
-class StatisticsSynchronizer(Protocol):
-    """Capacidad de recalcular las estadísticas de un usuario.
 
-    La implementa :class:`StatisticsService`. ``BetService`` la usa para
-    mantener el ranking sincronizado tras cada mutación de apuestas.
+class BetEventPublisher(Protocol):
+    """Capacidad de anunciar que una apuesta cambió.
+
+    Sustituye a la llamada directa que ``BetService`` hacía a ``ProgressionService``
+    (``StatisticsSynchronizer``, retirada en T-028): ahora la respuesta al cliente no
+    espera al recálculo de estadísticas, rangos, logros y ranking, que ocurre en
+    progression-service al consumir el exchange ``bets.events``.
+
+    Publicar no debe poder tumbar la operación: la apuesta ya está persistida y es la
+    fuente de verdad. Una implementación que falle debe registrarlo y devolver el
+    control, no propagar la excepción.
     """
 
-    async def recalculate(self, user_id: str) -> None: ...
+    async def publish(self, event: BetEvent) -> None: ...
 
 
 class AuditLogger(Protocol):

@@ -37,7 +37,12 @@ async def test_statistics_me_reflects_bets(client: AsyncClient):
     assert "ranking_score" in s
 
 
-async def test_statistics_sync_on_status_change(client: AsyncClient):
+async def test_statistics_are_cached_after_first_read(client: AsyncClient):
+    """Sin sincronización en proceso (T-028), la primera lectura materializa el
+    documento y las mutaciones posteriores ya no lo actualizan aquí: el recálculo
+    real ocurre exclusivamente en progression-service, al consumir el evento de
+    RabbitMQ (T-026). Este endpoint queda congelado en el primer cálculo."""
+
     token = await register_and_login(client, "syncuser", "sync@test.com")
     h = auth_header(token)
 
@@ -51,8 +56,7 @@ async def test_statistics_sync_on_status_change(client: AsyncClient):
 
     resp = await client.get("/statistics/me", headers=h)
     s = resp.json()
-    assert s["pending"] == 0 and s["won"] == 1
-    assert s["net_profit"] == 10.0  # stake 10 * (2-1)
+    assert s["pending"] == 1 and s["won"] == 0  # sigue el valor cacheado en la 1ª lectura
 
 
 async def test_statistics_requires_auth(client: AsyncClient):
@@ -72,6 +76,11 @@ async def test_ranking_orders_and_positions(client: AsyncClient):
     for _ in range(2):
         bid = await _create_bet(client, hb, odds=2.0, stake=10)
         await _settle(client, hb, bid, "LOST")
+
+    # Sin sincronización en proceso (T-028), el ranking sólo ve a los usuarios cuyas
+    # estadísticas ya se materializaron; una lectura de /statistics/me las materializa.
+    await client.get("/statistics/me", headers=ha)
+    await client.get("/statistics/me", headers=hb)
 
     resp = await client.get("/ranking", headers=ha)
     assert resp.status_code == 200
