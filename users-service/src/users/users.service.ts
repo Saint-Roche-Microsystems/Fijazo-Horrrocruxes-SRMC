@@ -7,6 +7,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { Role, User, UserDocument } from './schemas/user.schema';
+import { AuthClient } from './auth.client';
 import { CreateUserDto } from './dto/create-user.dto';
 import {
   PaginatedUsersDto,
@@ -17,12 +18,15 @@ import {
 export interface ValidateResult {
   active: boolean;
   tier: string | null;
+  locked: boolean;
+  locked_until: string | null;
 }
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly authClient: AuthClient,
   ) {}
 
   /** Crea un usuario. El password se hashea con bcrypt, como en el monolito. */
@@ -94,13 +98,21 @@ export class UsersService {
    */
   async validate(userId: string): Promise<ValidateResult> {
     if (!isValidObjectId(userId)) {
-      return { active: false, tier: null };
+      return { active: false, tier: null, locked: false, locked_until: null };
     }
     const doc = await this.userModel.findById(userId).exec();
     if (!doc) {
-      return { active: false, tier: null };
+      return { active: false, tier: null, locked: false, locked_until: null };
     }
-    return { active: doc.active, tier: doc.tier };
+    // Hop B->C: enriquecer con el estado de bloqueo de auth-service, sin que el
+    // llamador (Bets) conozca la existencia de auth-service.
+    const lock = await this.authClient.getLockStatus(userId);
+    return {
+      active: doc.active,
+      tier: doc.tier,
+      locked: lock.locked,
+      locked_until: lock.locked_until,
+    };
   }
 
   private async findOrFail(userId: string): Promise<UserDocument> {
