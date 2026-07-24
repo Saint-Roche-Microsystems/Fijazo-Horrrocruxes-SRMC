@@ -7,3 +7,6 @@
 [submodule "bets-service"]
 	path = bets-service
 	url = https://github.com/Saint-Roche-Microsystems/Bets-Service.git
+[submodule "users-service"]
+	path = users-service
+	url = https://github.com/Saint-Roche-Microsystems/Users-Service.git
