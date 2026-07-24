@@ -10,3 +10,6 @@
 [submodule "users-service"]
 	path = users-service
 	url = https://github.com/Saint-Roche-Microsystems/Users-Service.git
+[submodule "progression-service"]
+	path = progression-service
+	url = https://github.com/Saint-Roche-Microsystems/Progression-Service.git
