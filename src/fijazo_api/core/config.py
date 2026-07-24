@@ -63,11 +63,6 @@ class Settings(BaseSettings):
     admin_email: str = "admin@fijazo.com"
     admin_password: str = "changeme123"
 
-    # Backfill de estadísticas/progresión al arrancar. Recorre todos los usuarios, así que
-    # debe desactivarse en entornos serverless (Vercel), donde cada arranque en frío lo
-    # repetiría. Los endpoints ya recalculan de forma perezosa por usuario.
-    run_startup_backfill: bool = True
-
     # Logging: nivel raíz de la app (DEBUG/INFO/WARNING/ERROR). Los logs se emiten en JSON
     # (ver core/logging.py), un registro por petición REST más uno por excepción.
     log_level: str = "INFO"

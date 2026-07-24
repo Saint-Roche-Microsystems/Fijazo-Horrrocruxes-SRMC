@@ -18,8 +18,6 @@ from fijazo_api.api.routers import (
     statistics,
     users,
 )
-from fijazo_api.application.services.progression_service import ProgressionService
-from fijazo_api.application.services.statistics_service import StatisticsService
 from fijazo_api.core.config import get_settings
 from fijazo_api.core.exceptions import (
     AccountLockedError,
@@ -34,15 +32,6 @@ from fijazo_api.infrastructure.database.mongo import (
     create_client,
     ensure_indexes,
     get_database,
-)
-from fijazo_api.infrastructure.repositories.mongo_bet_repository import (
-    MongoBetRepository,
-)
-from fijazo_api.infrastructure.repositories.mongo_progression_repository import (
-    MongoProgressionRepository,
-)
-from fijazo_api.infrastructure.repositories.mongo_statistics_repository import (
-    MongoStatisticsRepository,
 )
 from fijazo_api.infrastructure.repositories.mongo_user_repository import (
     MongoUserRepository,
@@ -71,19 +60,9 @@ async def lifespan(app: FastAPI):
     await ensure_indexes(db)
     await seed_admin(user_repo, settings)
 
-    # Backfill idempotente: estadísticas + rango/logros de las apuestas existentes.
-    if settings.run_startup_backfill:
-        bet_repo = MongoBetRepository(db)
-        stats_service = StatisticsService(bet_repo, MongoStatisticsRepository(db), user_repo)
-        progression_service = ProgressionService(
-            stats_service, MongoProgressionRepository(db), user_repo, bet_repo
-        )
-        processed = await progression_service.recalculate_all()
-        logger.info(
-            "Backfill de estadísticas y progresión completado para %d usuario(s).", processed
-        )
-    else:
-        logger.info("Backfill de arranque desactivado (RUN_STARTUP_BACKFILL=false).")
+    # El arranque ya no ejecuta ningún recálculo masivo (T-029): esa lógica vive en
+    # scripts/backfill_progression.py, un job manual que publica un evento histórico por
+    # usuario hacia bets.events y reutiliza el consumer de progression-service (T-026).
 
     # Publisher de eventos (T-028): sin URL configurada, sigue con el publisher de log de
     # desarrollo (ver deps.get_event_publisher). BetService ya no llama a ProgressionService
