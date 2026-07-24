@@ -13,6 +13,12 @@ import {
   UserResponseDto,
 } from './dto/user-response.dto';
 
+/** Resultado del contrato `users.validate`. */
+export interface ValidateResult {
+  active: boolean;
+  tier: string | null;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -79,6 +85,22 @@ export class UsersService {
     doc.role = role;
     await doc.save();
     return UserResponseDto.fromDocument(doc);
+  }
+
+  /**
+   * Contrato de validación consumido por otros servicios (vía TCP). Devuelve el
+   * estado del usuario sin exponer HTTP público. Un usuario inexistente se trata
+   * como no activo, para que el llamador (Bets) no dependa de errores.
+   */
+  async validate(userId: string): Promise<ValidateResult> {
+    if (!isValidObjectId(userId)) {
+      return { active: false, tier: null };
+    }
+    const doc = await this.userModel.findById(userId).exec();
+    if (!doc) {
+      return { active: false, tier: null };
+    }
+    return { active: doc.active, tier: doc.tier };
   }
 
   private async findOrFail(userId: string): Promise<UserDocument> {
