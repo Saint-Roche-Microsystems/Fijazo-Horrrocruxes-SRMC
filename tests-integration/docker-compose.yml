@@ -1,0 +1,86 @@
+# Compose de test para T-018: levanta los tres servicios reales de la cadena síncrona
+# A->B->C (bets-service -> users-service -> auth-service) contra sus propias bases de
+# datos, sin stubs. No incluye RabbitMQ: esta cadena es completamente síncrona (TCP+HTTP).
+#
+# Uso:
+#   docker compose -f tests-integration/docker-compose.yml up -d --build
+#   poetry run pytest tests-integration/test_chain_abc.py -q
+#   docker compose -f tests-integration/docker-compose.yml down -v
+
+services:
+  auth-service:
+    build: ../auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      MONGO_URI: mongodb://auth-mongo:27017
+      MONGO_DB_NAME: auth_db
+      JWT_SECRET: e2e-test-jwt-secret
+      INTERNAL_API_KEY: e2e-test-internal-key
+      USERS_SERVICE_URL: http://users-service:3001
+      USERS_SERVICE_TIMEOUT_SECONDS: "5.0"
+    depends_on:
+      auth-mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  auth-mongo:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  users-service:
+    build: ../users-service
+    ports:
+      - "3001:3001"
+      - "3011:3011"
+    environment:
+      HTTP_PORT: "3001"
+      TCP_PORT: "3011"
+      MONGO_URI: mongodb://users-mongo:27017
+      MONGO_DB_NAME: users_db
+      INTERNAL_API_KEY: e2e-test-internal-key
+      AUTH_SERVICE_URL: http://auth-service:8001
+    depends_on:
+      users-mongo:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    restart: unless-stopped
+
+  users-mongo:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  bets-service:
+    build: ../bets-service
+    ports:
+      - "8002:8002"
+    environment:
+      MONGO_URI: mongodb://bets-mongo:27017
+      MONGO_DB_NAME: bets_db
+      INTERNAL_API_KEY: e2e-test-internal-key
+      USERS_SERVICE_TCP_HOST: users-service
+      USERS_SERVICE_TCP_PORT: "3011"
+      USERS_SERVICE_TIMEOUT_SECONDS: "5.0"
+    depends_on:
+      bets-mongo:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+    restart: unless-stopped
+
+  bets-mongo:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
