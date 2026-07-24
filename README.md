@@ -83,7 +83,6 @@ La API se despliega como una única Vercel Function con el runtime de Python.
 | `JWT_SECRET` | `openssl rand -hex 32` | **Secreto**. No dejes el valor por defecto. |
 | `CORS_ORIGINS` | `https://<frontend>.vercel.app` | Sin esto el navegador bloquea el frontend. |
 | `CORS_ORIGIN_REGEX` | `^https://<proyecto>-.*\.vercel\.app$` | Opcional: habilita los preview deployments. |
-| `RUN_STARTUP_BACKFILL` | `false` | **Obligatorio en Vercel**: cada cold start recorrería todos los usuarios. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | credenciales del admin | El email debe ser de un dominio real (`.local` lo rechaza `EmailStr`). |
 | `MONGO_MAX_POOL_SIZE` | `10` | Conexiones por instancia; el total contra Atlas es instancias × este valor. |
 
@@ -104,9 +103,9 @@ Comprueba `https://<api>.vercel.app/health` → `{"status":"ok"}`. Swagger queda
 ### Notas de serverless
 
 - El lifespan de FastAPI **sí** se ejecuta en Vercel, una vez por cold start: abre la conexión
-  a Mongo, crea los índices (idempotente) y siembra el admin. El backfill se desactiva con
-  `RUN_STARTUP_BACKFILL=false`; las estadísticas se recalculan igualmente por usuario en cada
-  endpoint.
+  a Mongo, crea los índices (idempotente) y siembra el admin. Ya no ejecuta ningún recálculo
+  masivo (ver `scripts/backfill_progression.py`); las estadísticas se recalculan igualmente
+  por usuario en cada endpoint.
 - Vercel no lee `poetry.lock`: resuelve las dependencias de `pyproject.toml` en cada build
   dentro de los rangos declarados. Para builds reproducibles, commitea un `uv.lock`.
 
