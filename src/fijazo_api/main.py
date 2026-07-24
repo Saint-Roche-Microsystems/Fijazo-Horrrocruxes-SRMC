@@ -3,6 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import aio_pika
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -84,9 +85,24 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Backfill de arranque desactivado (RUN_STARTUP_BACKFILL=false).")
 
+    # Publisher de eventos (T-028): sin URL configurada, sigue con el publisher de log de
+    # desarrollo (ver deps.get_event_publisher). BetService ya no llama a ProgressionService
+    # directamente; la progresión se actualiza sólo al consumir este exchange (T-026).
+    rabbit_connection = None
+    if settings.rabbitmq_url:
+        rabbit_connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+        channel = await rabbit_connection.channel()
+        app.state.bets_events_exchange = await channel.get_exchange(
+            settings.bets_events_exchange
+        )
+    else:
+        app.state.bets_events_exchange = None
+
     try:
         yield
     finally:
+        if rabbit_connection is not None:
+            await rabbit_connection.close()
         await client.close()
 
 
