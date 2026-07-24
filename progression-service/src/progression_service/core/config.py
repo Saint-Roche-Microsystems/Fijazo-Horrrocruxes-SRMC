@@ -20,5 +20,10 @@ class Settings(BaseSettings):
     # CORS: orígenes autorizados del frontend, separados por comas.
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Mensajería: consumer de eventos de apuesta (cola progression.recalc del bus).
+    rabbitmq_url: str = "amqp://fijazo:fijazo@localhost:5672/"
+    recalc_queue: str = "progression.recalc"
+    recalc_prefetch: int = 10
+
 
 settings = Settings()

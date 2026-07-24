@@ -30,6 +30,18 @@ poetry install
 poetry run uvicorn progression_service.main:app --reload --port 8002
 ```
 
+## Consumer de eventos (RabbitMQ)
+
+Proceso independiente del servidor HTTP. Escucha la cola `progression.recalc` (enlazada al
+exchange `bets.events`); por cada evento de apuesta ejecuta la cadena completa
+stats → ranks → logros → ranking para el `user_id` del evento.
+
+```bash
+poetry run python -m progression_service.consumer
+```
+
+Configuración: `RABBITMQ_URL`, `RECALC_QUEUE`, `RECALC_PREFETCH`.
+
 ## Tests
 
 ```bash

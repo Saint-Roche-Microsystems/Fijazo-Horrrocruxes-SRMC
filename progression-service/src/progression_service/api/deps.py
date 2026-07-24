@@ -5,14 +5,12 @@ from typing import Annotated
 from fastapi import Depends, Request
 from pymongo.asynchronous.database import AsyncDatabase
 
+from progression_service.application.factory import build_progression_service
 from progression_service.application.services.progression_service import ProgressionService
 from progression_service.application.services.ranking_service import RankingService
 from progression_service.application.services.statistics_service import StatisticsService
 from progression_service.infrastructure.repositories.mongo_bet_repository import (
     MongoBetRepository,
-)
-from progression_service.infrastructure.repositories.mongo_progression_repository import (
-    MongoProgressionRepository,
 )
 from progression_service.infrastructure.repositories.mongo_statistics_repository import (
     MongoStatisticsRepository,
@@ -40,12 +38,7 @@ def get_statistics_service(db: DbDep) -> StatisticsService:
 
 
 def get_progression_service(db: DbDep) -> ProgressionService:
-    return ProgressionService(
-        get_statistics_service(db),
-        MongoProgressionRepository(db),
-        MongoUserRepository(db),
-        MongoBetRepository(db),
-    )
+    return build_progression_service(db)
 
 
 def get_ranking_service(db: DbDep) -> RankingService:
