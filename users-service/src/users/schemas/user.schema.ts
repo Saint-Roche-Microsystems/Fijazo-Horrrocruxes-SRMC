@@ -29,6 +29,9 @@ export class User {
   @Prop({ default: true })
   active: boolean;
 
+  @Prop({ default: 'standard' })
+  tier: string;
+
   @Prop({ default: () => new Date() })
   created_at: Date;
 
