@@ -1,0 +1,54 @@
+{
+  "rabbit_version": "3.13",
+  "users": [
+    {
+      "name": "fijazo",
+      "password": "fijazo",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "fijazo",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "bets.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "progression.recalc",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "bets.events",
+      "vhost": "/",
+      "destination": "progression.recalc",
+      "destination_type": "queue",
+      "routing_key": "bet.#",
+      "arguments": {}
+    }
+  ]
+}
