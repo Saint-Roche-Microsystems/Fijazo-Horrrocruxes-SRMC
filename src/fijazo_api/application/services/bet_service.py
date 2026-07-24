@@ -1,12 +1,17 @@
 """Casos de uso de apuestas: CRUD con campos calculados y control de propiedad."""
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fijazo_api.application.ports import StatisticsSynchronizer
+from fijazo_api.application.ports import BetEventPublisher
 from fijazo_api.core.exceptions import InvalidBetError, NotFoundError
+from fijazo_api.core.logging import get_request_id
 from fijazo_api.domain.entities.bet import Bet, BetLeg, BetStatus, BetType
+from fijazo_api.domain.entities.bet_event import BetEvent, BetEventType
 from fijazo_api.domain.repositories.bet_repository import BetRepository
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_legs(data: dict[str, Any]) -> None:
@@ -33,21 +38,44 @@ class BetService:
     autenticado; en caso contrario se comporta como si no existiera (404),
     evitando filtrar la existencia de recursos ajenos.
 
-    Si se le inyecta un ``StatisticsSynchronizer``, tras cada mutación recalcula
-    las estadísticas del usuario para mantener el ranking sincronizado.
+    Ya no recalcula estadísticas en proceso (T-028): tras cada mutación publica un
+    evento de dominio al exchange ``bets.events`` y devuelve. El recálculo de
+    estadísticas, rangos, logros y ranking lo hace progression-service al consumirlo
+    (T-026), igual que para las apuestas creadas en bets-service.
     """
 
     def __init__(
         self,
         bet_repository: BetRepository,
-        stats_sync: StatisticsSynchronizer | None = None,
+        event_publisher: BetEventPublisher | None = None,
     ) -> None:
         self._bets = bet_repository
-        self._stats_sync = stats_sync
+        self._events = event_publisher
 
-    async def _sync_stats(self, user_id: str) -> None:
-        if self._stats_sync is not None:
-            await self._stats_sync.recalculate(user_id)
+    async def _publish(self, event_type: BetEventType, user_id: str, bet_id: str) -> None:
+        """Anuncia una mutación ya confirmada en la base de datos.
+
+        Un fallo aquí no revierte la apuesta: ya está persistida y es la fuente de
+        verdad. Se registra y se sigue; la proyección que se pierda se reconstruye
+        con el backfill de eventos históricos (T-029).
+        """
+
+        if self._events is None:
+            return
+        event = BetEvent(
+            event_type=event_type,
+            user_id=user_id,
+            bet_id=bet_id,
+            request_id=get_request_id(),
+        )
+        try:
+            await self._events.publish(event)
+        except Exception:
+            logger.exception(
+                "No se pudo publicar el evento de dominio '%s'.",
+                event_type.value,
+                extra={"user_id": user_id, "bet_id": bet_id},
+            )
 
     async def create_bet(self, user_id: str, data: dict[str, Any]) -> Bet:
         """Crea una apuesta para el usuario y calcula los campos derivados."""
@@ -58,7 +86,7 @@ class BetService:
         _validate_type_vs_legs(bet)
         bet.recalculate()
         created = await self._bets.create(bet)
-        await self._sync_stats(user_id)
+        await self._publish(BetEventType.CREATED, user_id, created.id)
         return created
 
     async def get_bet(self, user_id: str, bet_id: str) -> Bet:
@@ -105,7 +133,7 @@ class BetService:
         bet.recalculate()
         bet.updated_at = datetime.now(timezone.utc)
         updated = await self._bets.update(bet)
-        await self._sync_stats(user_id)
+        await self._publish(BetEventType.UPDATED, user_id, bet_id)
         return updated
 
     async def delete_bet(self, user_id: str, bet_id: str) -> None:
@@ -114,4 +142,4 @@ class BetService:
         # Reutiliza get_bet para verificar propiedad y existencia.
         await self.get_bet(user_id, bet_id)
         await self._bets.delete(bet_id)
-        await self._sync_stats(user_id)
+        await self._publish(BetEventType.DELETED, user_id, bet_id)

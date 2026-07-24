@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     # (ver core/logging.py), un registro por petición REST más uno por excepción.
     log_level: str = "INFO"
 
+    # RabbitMQ: publisher de eventos de dominio (T-028) hacia el exchange declarado en
+    # T-025, el mismo que usa bets-service. Con la URL vacía se usa el publisher de log de
+    # desarrollo (ver infrastructure/events/logging_publisher.py).
+    rabbitmq_url: str | None = None
+    bets_events_exchange: str = "bets.events"
+
     # Hardening de login: tras ``login_max_attempts`` fallos consecutivos sobre la misma
     # cuenta, se bloquea temporalmente con backoff exponencial:
     # ``login_lockout_base_seconds * 2^(intentos_extra)``, con tope en

@@ -22,6 +22,9 @@ from fijazo_api.domain.repositories.bet_repository import BetRepository
 from fijazo_api.domain.repositories.progression_repository import ProgressionRepository
 from fijazo_api.domain.repositories.statistics_repository import StatisticsRepository
 from fijazo_api.domain.repositories.user_repository import UserRepository
+from fijazo_api.application.ports import BetEventPublisher
+from fijazo_api.infrastructure.events.logging_publisher import LoggingBetEventPublisher
+from fijazo_api.infrastructure.events.rabbitmq_publisher import RabbitMqBetEventPublisher
 from fijazo_api.infrastructure.repositories.mongo_audit_log_repository import (
     MongoAuditLogRepository,
 )
@@ -108,13 +111,26 @@ def get_progression_service(
     return ProgressionService(stats_service, progression, users, bets)
 
 
+def get_event_publisher(request: Request) -> BetEventPublisher:
+    """Publisher de eventos de dominio.
+
+    Con RabbitMQ configurado (T-028), publica al exchange ``bets.events`` real —el
+    mismo que usa bets-service—. Sin configurar, cae al publisher de log de desarrollo.
+    """
+
+    exchange = getattr(request.app.state, "bets_events_exchange", None)
+    if exchange is None:
+        return LoggingBetEventPublisher()
+    return RabbitMqBetEventPublisher(exchange)
+
+
 def get_bet_service(
     bets: Annotated[BetRepository, Depends(get_bet_repository)],
-    progression_service: Annotated[ProgressionService, Depends(get_progression_service)],
+    events: Annotated[BetEventPublisher, Depends(get_event_publisher)],
 ) -> BetService:
-    # La progresión encadena el recálculo de estadísticas (stats -> rango/logros),
-    # por lo que sirve como sincronizador tras cada mutación de apuestas.
-    return BetService(bets, stats_sync=progression_service)
+    # Ya no depende de ProgressionService (T-028): publica un evento y devuelve;
+    # progression-service recalcula al consumirlo (T-026).
+    return BetService(bets, event_publisher=events)
 
 
 def get_bet_import_service(
