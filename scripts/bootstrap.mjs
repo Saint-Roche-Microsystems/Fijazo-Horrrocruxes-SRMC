@@ -201,6 +201,7 @@ function buildOverridesPerService(shared, ports) {
       PORT: ports.gatewayPort,
       JWT_SECRET: shared.JWT_SECRET,
       JWT_ALGORITHM: shared.JWT_ALGORITHM,
+      INTERNAL_API_KEY: shared.INTERNAL_API_KEY,
       AUTH_SERVICE_URL: `http://localhost:${ports.authPort}`,
       USERS_SERVICE_URL: `http://localhost:${ports.usersHttpPort}`,
       BETS_SERVICE_URL: `http://localhost:${ports.betsPort}`,

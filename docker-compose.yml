@@ -164,6 +164,7 @@ services:
       PORT: "3000"
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please-use-a-secure-random-secret}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
       AUTH_SERVICE_URL: http://auth-service:8001
       USERS_SERVICE_URL: http://users-service:3001
       BETS_SERVICE_URL: http://bets-service:8002
