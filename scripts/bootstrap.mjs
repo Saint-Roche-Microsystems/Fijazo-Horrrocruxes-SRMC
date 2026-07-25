@@ -20,6 +20,15 @@ const SERVICES = [
   { dir: 'api-gateway', example: '.env.example', target: '.env' },
 ];
 
+/** Gestor de paquetes por servicio, para instalar dependencias tras generar los .env. */
+const INSTALL_STEPS = [
+  { dir: 'auth-service', cmd: 'poetry', args: ['install'] },
+  { dir: 'users-service', cmd: 'npm', args: ['install'] },
+  { dir: 'bets-service', cmd: 'poetry', args: ['install'] },
+  { dir: 'progression-service', cmd: 'poetry', args: ['install'] },
+  { dir: 'api-gateway', cmd: 'npm', args: ['install'] },
+];
+
 function run(cmd, args) {
   return spawnSync(cmd, args, { shell: true, encoding: 'utf8' });
 }
@@ -229,22 +238,65 @@ function generateEnvFiles(overridesPerService) {
   }
 }
 
+/** Corre `poetry install` / `npm install` en cada servicio. */
+function installDependencies() {
+  console.log('Instalando dependencias de cada microservicio...\n');
+
+  const failures = [];
+  for (const step of INSTALL_STEPS) {
+    const cwd = join(ROOT, step.dir);
+    process.stdout.write(`  ${step.dir} (${step.cmd} ${step.args.join(' ')})... `);
+    const res = spawnSync(step.cmd, step.args, { cwd, shell: true, encoding: 'utf8' });
+    if (res.status === 0) {
+      console.log('OK');
+    } else {
+      console.log('ERROR');
+      failures.push({ dir: step.dir, output: (res.stderr || res.stdout || '').trim() });
+    }
+  }
+
+  if (failures.length > 0) {
+    console.log('\nDetalle de los errores:');
+    for (const failure of failures) {
+      console.log(`\n--- ${failure.dir} ---`);
+      console.log(failure.output.split('\n').slice(-20).join('\n'));
+    }
+  }
+
+  return failures;
+}
+
 async function main() {
   checkDependencies();
   checkSubmodules();
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let ports;
+  let shared;
   try {
-    const ports = await askPorts(rl);
-    const shared = loadOrCreateSharedSecrets();
-    const overridesPerService = buildOverridesPerService(shared, ports);
-    console.log();
-    generateEnvFiles(overridesPerService);
+    ports = await askPorts(rl);
+    shared = loadOrCreateSharedSecrets();
   } finally {
     rl.close();
   }
 
-  console.log('\nArchivos .env generados.');
+  const overridesPerService = buildOverridesPerService(shared, ports);
+  console.log();
+  generateEnvFiles(overridesPerService);
+
+  console.log();
+  const failures = installDependencies();
+
+  console.log();
+  if (failures.length > 0) {
+    console.log(
+      `Instalación completada con errores en: ${failures.map((f) => f.dir).join(', ')}.`,
+    );
+    console.log('Revisa el detalle de arriba y corrígelo antes de correr esos servicios.');
+  } else {
+    console.log('Todas las dependencias se instalaron correctamente.');
+  }
+  console.log('\nPara ejecutar cada microservicio por separado, ejecutar: node scripts/local_run.mjs');
 }
 
 main();
