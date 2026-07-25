@@ -36,9 +36,30 @@ El sistema gestiona apuestas deportivas y el progreso/historial de cada usuario,
 - **BD:** MongoDB (una base por servicio) · **Contenedores:** Docker Compose · **Estructura:** repo maestro con submódulos git por microservicio
 
 ## Cómo ejecutar
+
+### Preparación
+
 ```bash
-# POR DEFINIR
+node scripts/bootstrap.mjs
 ```
+
+Verifica que se encuentren las dependencias necesarias: `node`, `npm` y `poetry`, sincroniza los submódulos si falta alguno y genera el `.env` de cada microservicio. Finalmente instala las dependencias de cada microservicio.
+
+### Para producción
+
+```bash
+docker compose up --build -d
+```
+
+Levanta todo el sistema, contenerizadas en imagenes de docker con el único puerto público: `3000` (api-gateway).
+
+### Ejecutar en desarrollo
+
+```bash
+node scripts/local_run.mjs
+```
+
+Imprime, servicio por servicio, la secuencia exacta para levantarlo a mano en su propia terminal.
 
 ## Arquitectura
 
