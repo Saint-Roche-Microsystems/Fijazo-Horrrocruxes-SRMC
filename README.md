@@ -144,3 +144,118 @@ En la captura: el `POST /bets` sigue respondiendo `201 Created` con la apuesta p
 Mismo patrón fail-open aplica en `RedisSecurityEventPublisher.publish()` (auth-service) y en `AuthClient.getLockStatus()` (users-service → auth-service): ambos asumen el valor "seguro por defecto" (`locked: false`) ante un fallo de su dependencia, priorizando disponibilidad del login sobre bloqueo estricto — inconsistente con el criterio fail-closed que aplica bets-service en el mismo tipo de dependencia, documentado como gap pendiente de definición de criterio único.
 
 ---
+
+## 🔵 Avance 3 — Seguridad, observabilidad e integración (FINAL) · `tag v3-final`
+### Autenticación y autorización
+`POST /auth/login` (auth-service, vía gateway) valida credenciales y emite un JWT (`access_token` + `token_type: bearer`). El gateway protege el resto de rutas con `JwtAuthGuard`: toda ruta que no esté marcada `@Public()` exige `Authorization: Bearer <token>` válido antes de dejar pasar el proxy hacia el microservicio destino; `RolesGuard` añade una capa adicional para rutas anotadas con `@Roles(...)`.
+
+![Login exitoso: emisión del JWT](docs/avances3/login_token.png)
+
+![Petición sin token: 401 Unauthorized](docs/avances3/req_no_token.png)
+
+![Misma petición con Bearer token: 200 OK](docs/avances3/req_with_token.png)
+
+En las capturas: `POST /auth/login` devuelve el `access_token`; `GET /users/{id}` sin cabecera `Authorization` es rechazada por el `JwtAuthGuard` del gateway (`401`, `"Token no proporcionado."`) **antes** de llegar a hacer proxy hacia users-service; la misma petición con `Bearer <access_token>` pasa el guard y responde `200` con el perfil — el gateway es el único punto que valida el JWT, los microservicios internos confían en la identidad que llega resuelta por cabecera (`X-User-Id`, ver Avance 2) más el secreto de servicio (`X-Internal-Key`).
+
+### Integración final
+Operación que atraviesa el sistema completo, combinando los tres transportes documentados en los avances anteriores — desde que un usuario se autentica hasta que su apuesta impacta en su progreso:
+
+1. `POST /auth/login` (gateway → auth-service): valida credenciales, emite JWT. Si falla 5 veces, auth-service publica `user.locked` en Redis Streams (asíncrono) y users-service marca `security_locked` en el perfil sin bloquear el login que lo originó.
+2. `POST /bets` (gateway → bets-service), con `Authorization: Bearer <jwt>`: el `JwtAuthGuard` valida el token y el proxy inyecta `X-User-Id`/`X-Internal-Key`.
+3. bets-service valida al usuario por **TCP** contra `users.validate` (users-service) — fail-closed, 503 si users-service no responde (Avance 1).
+4. Dentro de ese mismo hop, users-service consulta por **HTTP interno** `/internal/lock-status/{id}` en auth-service — fail-open, asume no bloqueado si auth-service no responde (Avance 2).
+5. Si el usuario es válido y no está bloqueado, bets-service persiste la apuesta en su Mongo (fuente de verdad) y responde `201` al cliente.
+6. bets-service publica el evento `bet.created` en **RabbitMQ** (exchange `bets.events` → cola `progression.recalc`) — fail-open, un fallo de publicación no revierte la apuesta ya persistida (Avance 2).
+7. progression-service recalcularía estadísticas/rachas/logros a partir de ese evento (consumidor pendiente, disparo actual solo manual vía `POST /internal/recalculate/{user_id}` — gap documentado, no bloqueante para el flujo síncrono del usuario).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente
+    participant GW as api-gateway
+    participant Auth as auth-service
+    participant Users as users-service
+    participant Bets as bets-service
+    participant Prog as progression-service
+    participant Redis as Redis Streams
+    participant MQ as RabbitMQ
+
+    Cliente->>GW: POST /auth/login
+    GW->>Auth: proxy + X-Internal-Key
+    Auth-->>GW: 200 access_token (JWT)
+    GW-->>Cliente: 200 access_token
+
+    Note over Auth,Redis: Login fallido x5 (rama alterna)
+    Auth--)Redis: XADD security-events user.locked
+    Redis--)Users: XREADGROUP (consumer group)
+    Users->>Users: security_locked = true
+
+    Cliente->>GW: POST /bets (Bearer JWT)
+    GW->>GW: JwtAuthGuard valida token
+    GW->>Bets: proxy + X-User-Id + X-Internal-Key
+    Bets->>Users: TCP users.validate(user_id, request_id)
+    Users->>Auth: GET /internal/lock-status/{id} + X-Internal-Key
+    Auth-->>Users: 200 {locked, locked_until}
+    Users-->>Bets: {active, tier, locked}
+    Bets->>Bets: Mongo: persiste apuesta (fuente de verdad)
+    Bets-->>GW: 201 Created
+    GW-->>Cliente: 201 Created
+
+    Bets--)MQ: publish bets.events (routing key bet.created)
+    MQ--)Prog: cola progression.recalc (sin consumidor activo — gap)
+```
+
+### Diagrama final
+
+```mermaid
+graph TB
+    Cliente["Cliente / Bruno"]
+
+    subgraph Edge["Borde"]
+        GW["api-gateway :3000<br/>JwtAuthGuard · RolesGuard · Proxy"]
+    end
+
+    subgraph Sync["Transporte sincrono"]
+        Auth["auth-service<br/>FastAPI :8001"]
+        Users["users-service<br/>NestJS HTTP :3001 / TCP :3011"]
+        Bets["bets-service<br/>FastAPI :8002"]
+        Prog["progression-service<br/>FastAPI :8003"]
+    end
+
+    subgraph Async["Infraestructura asincrona"]
+        Redis[("Redis Streams<br/>security-events")]
+        MQ[("RabbitMQ<br/>bets.events -> progression.recalc")]
+    end
+
+    subgraph Data["Persistencia (una BD por servicio)"]
+        MAuth[("mongo-auth")]
+        MUsers[("mongo-users")]
+        MBets[("mongo-bets")]
+        MProg[("mongo-progression")]
+    end
+
+    Cliente -->|HTTP + JWT| GW
+    GW -->|HTTP + X-Internal-Key| Auth
+    GW -->|HTTP + X-Internal-Key| Users
+    GW -->|HTTP + X-Internal-Key| Bets
+    GW -->|HTTP + X-Internal-Key| Prog
+
+    Bets -->|TCP users.validate| Users
+    Users -->|HTTP /internal/lock-status| Auth
+
+    Auth -->|XADD user.login_failed/user.locked| Redis
+    Redis -->|XREADGROUP| Users
+
+    Bets -->|publish bet.created/updated/deleted| MQ
+    MQ -.->|sin consumidor activo| Prog
+
+    Auth --> MAuth
+    Users --> MUsers
+    Bets --> MBets
+    Prog --> MProg
+```
+
+---
+
+## 🏷️ Tags de entrega
+- `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 24/07/2026
