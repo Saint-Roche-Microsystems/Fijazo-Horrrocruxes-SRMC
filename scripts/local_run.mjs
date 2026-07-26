@@ -85,8 +85,12 @@ function printInstructions(services) {
   for (const service of services) {
     console.log(`--- ${service.dir} ---`);
     console.log(`1. cd ${service.dir}`);
-    console.log('2. docker compose up -d mongo');
-    console.log(`3. ${service.runCmd}`);
+    if (service.dir === 'api-gateway') {
+      console.log(`2. ${service.runCmd}`);
+    } else {
+      console.log('2. docker compose up -d mongo');
+      console.log(`3. ${service.runCmd}`);
+    }
     console.log();
   }
 }
