@@ -169,6 +169,18 @@ Mismo patrón fail-open aplica en `RedisSecurityEventPublisher.publish()` (auth-
 
 En las capturas: `POST /auth/login` devuelve el `access_token`; `GET /users/{id}` sin cabecera `Authorization` es rechazada por el `JwtAuthGuard` del gateway (`401`, `"Token no proporcionado."`) **antes** de llegar a hacer proxy hacia users-service; la misma petición con `Bearer <access_token>` pasa el guard y responde `200` con el perfil — el gateway es el único punto que valida el JWT, los microservicios internos confían en la identidad que llega resuelta por cabecera (`X-User-Id`, ver Avance 2) más el secreto de servicio (`X-Internal-Key`).
 
+### Observabilidad (Sentry)
+Los 5 microservicios (auth-service, bets-service, progression-service, users-service, api-gateway) inicializan Sentry de forma condicional a `SENTRY_DSN`: si la variable está vacía el SDK queda deshabilitado y el servicio arranca igual. Solo se reportan errores (`traces_sample_rate=0`, sin performance tracing) en dos categorías:
+
+- **No controlados**: cualquier excepción que llegue al middleware de logging (FastAPI) o al filtro global de excepciones (NestJS) sin haber sido traducida antes a una respuesta de negocio (`domain_error_handler` / `status >= 500`).
+- **Fail-open/fail-closed instrumentados a mano**: los puntos donde un servicio decide seguir adelante (o fallar) pese a un error de una dependencia.
+
+Cada evento capturado lleva las mismas etiquetas en los 5 servicios: `service` (nombre del microservicio), `transport` (`http`/`tcp`/`redis`/`rabbitmq`), `failure_mode` (`fail-open`/`fail-closed`) y `request_id`.
+
+![Panel de Sentry: error capturado en un servicio FastAPI](docs/avances3/fastapi_sentry_panel_error.png)
+
+![Panel de Sentry: error capturado en un servicio NestJS](docs/avances3/nestjs_sentry_panel_error.png)
+
 ### Integración final
 Operación que atraviesa el sistema completo, combinando los tres transportes documentados en los avances anteriores — desde que un usuario se autentica hasta que su apuesta impacta en su progreso:
 
@@ -266,6 +278,36 @@ graph TB
     Bets --> MBets
     Prog --> MProg
 ```
+
+---
+
+## 🎤 Defensa
+**Runbook de la demo:**
+```
+1. Levantar:            node scripts/bootstrap.mjs (una vez) -> docker compose up --build -d
+                         (o node scripts/local_run.mjs para verlo servicio por servicio)
+2. Ver servicios:       docker compose ps / GET http://localhost:3000/health
+3. Login:               POST http://localhost:3000/auth/login -> devuelve access_token
+4. Ruta protegida:      GET http://localhost:3000/users/{id} sin token -> 401
+                         con Authorization: Bearer <access_token> -> 200 (JwtAuthGuard en acción)
+5. Operación integrada: POST http://localhost:3000/bets con JWT -> TCP a users-service
+                         (users.validate), HTTP interno users-service -> auth-service
+                         (lock-status), persistencia en Mongo y evento a RabbitMQ (bet.created)
+6. Provocar un error   -> mostrarlo capturado en el panel de Sentry
+   (p. ej.: apagar RabbitMQ y hacer POST /bets -> ver el evento)
+```
+
+**Preguntas probables del jurado:**
+- ¿Qué información viaja dentro de un JWT y cómo se valida?
+- ¿Qué hace un Guard en NestJS y en qué se diferencia de un middleware?
+- ¿Cuál es la diferencia entre autenticación y autorización?
+- ¿Por qué eligieron HTTP/REST para ese salto y no TCP/eventos?
+- ¿En qué se diferencian los transportes que usaron (TCP, Redis, RabbitMQ, HTTP/REST)?
+- ¿Para qué sirve Sentry y qué registran ahí?
+- ¿Por qué usar dos tecnologías diferentes para los microservicios?
+- ¿Cuál fué el motivo para que cada microservicio tenga su propia DB?
+- ¿Por qué Redis Streams para eventos de seguridad y RabbitMQ para eventos de apuestas, en vez de un solo broker?
+- ¿Qué pasa si Sentry no tiene DSN configurado?
 
 ---
 
