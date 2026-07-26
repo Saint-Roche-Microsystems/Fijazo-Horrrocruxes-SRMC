@@ -86,6 +86,18 @@ Imprime, servicio por servicio, la secuencia exacta para levantarlo a mano en su
 - **Síncrono (TCP):** Gateway → **bets-service** → **users-service** (`users.validate`, cliente TCP contra el transporte `Transport.TCP` de Nest).
 - **Asíncrono (Redis):** auth-service publica el evento de seguridad en el stream `security-events` (`XADD`); users-service lo consume con un consumer group (`XREADGROUP`) y marca `security_locked` en el perfil, sin bloquear al usuario que originó el evento.
 
+### Latencia (con script personalizado `latency.mjs`)
+| Camino | Promedio | p95 | Máximo |
+|---|---|---|---|
+| Síncrono (TCP) | 9.02 ms | 10.76 ms | 16.80 ms |
+| Asíncrono (Redis) | 3.27 ms | 4.06 ms | 6.56 ms |
+
+**Cómo ejecutarlo**: con `users-service` y `redis` levantados (`docker compose up -d`), correr `node scripts/latency.mjs` desde la raíz del repo, indicando un `user_id` real vía variable de entorno (`BENCH_USER_ID`). El script no tiene dependencias externas: habla el framing TCP de Nest (`<longitud>#<json>`) y el protocolo RESP de Redis directamente por socket (`node:net`), abre una conexión nueva por cada iteración y mide el round-trip hasta la respuesta/ACK. Por defecto corre 20 iteraciones de calentamiento + 200 mediciones por camino (`--iterations`/`--warmup` para ajustar) e imprime la tabla en Markdown lista para pegar aquí.
+
+**Qué mide cada métrica**: **promedio** es el tiempo medio de respuesta por operación, útil como referencia general pero sensible a picos aislados; **p95** es el valor bajo el cual cae el 95% de las mediciones — el percentil que mejor describe la experiencia real bajo carga, ignorando el 5% de peores casos; **máximo** es el peor caso observado en la muestra, relevante para detectar colas de latencia (timeouts, GC pauses, contención) que el promedio oculta.
+
+**Por qué un script propio y no benchmark.js**: benchmark.js está diseñado para *microbenchmarking* de funciones JavaScript puras en el mismo proceso (mide ops/segundo con corrección estadística de overhead de la propia librería), no para medir latencia de operaciones de red I/O-bound como un round-trip TCP o un `XADD` contra un proceso externo — no reporta percentiles como p95 de forma nativa, y su modelo de "ciclos de ejecución" no aplica a una llamada que pasa la mayor parte del tiempo esperando una respuesta por socket. Dado que lo que este proyecto necesita comparar es la latencia observable de dos protocolos de red distintos (no la velocidad de ejecución de código JS), un script mínimo sobre `node:net` que mide tiempos reales de round-trip y calcula percentiles a mano es más simple, más preciso para este caso de uso, y evita sumar una dependencia solo para volver a implementar el cálculo de percentiles por fuera de ella.
+
 ### Acoplamiento temporal
 Al apagar **users-service**, cualquier `POST /bets` que dependa de `users.validate` falla de inmediato: `bets-service` abre una conexión TCP nueva por cada validación (sin capa de reconexión), por lo que el `ConnectionRefusedError` se propaga como `UserValidationUnavailableError` → **503** en la respuesta HTTP.
 
@@ -258,4 +270,4 @@ graph TB
 ---
 
 ## 🏷️ Tags de entrega
-- `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 24/07/2026
+- `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 26/07/2026
