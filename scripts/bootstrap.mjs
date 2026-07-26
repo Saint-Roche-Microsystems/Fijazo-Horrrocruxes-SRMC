@@ -240,6 +240,8 @@ function buildOverridesPerService(shared, ports) {
     'progression-service': {
       MONGO_URI: `mongodb://localhost:${ports.mongoProgressionPort}`,
       INTERNAL_API_KEY: shared.INTERNAL_API_KEY,
+      // Las apuestas no están en su Mongo: las lee de /internal/bets de bets-service.
+      BETS_SERVICE_URL: `http://localhost:${ports.betsPort}`,
       SENTRY_DSN: shared.SENTRY_FASTAPI_DSN,
     },
     'api-gateway': {

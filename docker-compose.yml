@@ -149,10 +149,18 @@ services:
     environment:
       MONGO_URI: mongodb://mongo-progression:27017
       MONGO_DB_NAME: progression_service
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      # Las apuestas son de bets-service: este servicio las lee por su API interna.
+      BETS_SERVICE_URL: http://bets-service:8002
+      BETS_SERVICE_TIMEOUT_SECONDS: "10.0"
       DEBUG: "false"
     depends_on:
       mongo-progression:
         condition: service_healthy
+      # Solo ordena el arranque: si bets-service no está, este servicio levanta igual y el
+      # recálculo responde 503 hasta que vuelva.
+      bets-service:
+        condition: service_started
     restart: unless-stopped
 
   api-gateway:

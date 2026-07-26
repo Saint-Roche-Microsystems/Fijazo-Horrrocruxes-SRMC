@@ -139,7 +139,7 @@ En la captura del exchange se ve el pico de tasa de mensajes en el momento del `
 | TCP | Síncrono | Petición-respuesta | `bets-service` → `users-service` (`users.validate`), valida al usuario antes de crear/actualizar una apuesta. |
 | Redis | Asíncrono | PUB/SUB (Streams + consumer group) | `auth-service` → `users-service`, eventos de seguridad (`user.login_failed`/`user.locked`) que marcan `security_locked` en el perfil sin bloquear el login. |
 | RabbitMQ | Asíncrono | Queue con enrutado por topic (exchange `bets.events` → cola `progression.recalc`) | `bets-service` anuncia mutaciones de apuesta para que `progression-service` recalcule estadísticas/rachas/logros. |
-| HTTP/REST | Síncrono | Contrato/RPC | `api-gateway` → todos los servicios (proxy); `users-service` → `auth-service` (`/internal/lock-status/{id}`), consulta de estado de bloqueo dentro del hop TCP. |
+| HTTP/REST | Síncrono | Contrato/RPC | `api-gateway` → todos los servicios (proxy); `users-service` → `auth-service` (`/internal/lock-status/{id}`), consulta de estado de bloqueo dentro del hop TCP; `progression-service` → `bets-service` (`/internal/bets?user_id=`), relectura del historial para recalcular. |
 
 TCP y HTTP/REST síncronos se usan cuando la respuesta debe reflejar el estado real **en el instante** de la petición (validar un usuario, consultar si está bloqueado antes de aceptar una apuesta): el costo es acoplamiento temporal y latencia acumulada, pero se gana consistencia inmediata. Redis Streams y RabbitMQ se usan cuando la acción disparadora no debe esperar a que el interesado la procese (notificar un bloqueo de cuenta, avisar que hay que recalcular progreso): se gana desacoplamiento y resiliencia ante caídas temporales del consumidor, a cambio de consistencia eventual.
 
@@ -154,6 +154,8 @@ Se identificaron y evidenciaron dos mecanismos de control de errores con criteri
 En la captura: el `POST /bets` sigue respondiendo `201 Created` con la apuesta persistida, mientras el log estructurado de `bets-service` registra `"No se pudo publicar el evento de dominio 'bet.created'."` (`exc_type: ChannelNotFoundEntity`) — el fallo del segundo transporte no afecta la respuesta al usuario ni la integridad del dato ya guardado, que es la fuente de verdad.
 
 Mismo patrón fail-open aplica en `RedisSecurityEventPublisher.publish()` (auth-service) y en `AuthClient.getLockStatus()` (users-service → auth-service): ambos asumen el valor "seguro por defecto" (`locked: false`) ante un fallo de su dependencia, priorizando disponibilidad del login sobre bloqueo estricto — inconsistente con el criterio fail-closed que aplica bets-service en el mismo tipo de dependencia, documentado como gap pendiente de definición de criterio único.
+
+Un tercer caso, **fail-closed por integridad del dato** (no por seguridad): `HttpBetRepository` (progression-service → bets-service) traduce cualquier fallo de la lectura a `BetSourceUnavailableError` → **503**, en vez de devolver una lista vacía. Aquí el "valor seguro por defecto" no existe: `StatisticsService.recalculate` hace `upsert` de lo que calcule, así que interpretar un fallo de red como "este usuario no tiene apuestas" sobrescribiría sus estadísticas reales con ceros — y esa proyección es la única copia. El criterio, entonces, no es "seguridad vs disponibilidad" sino **qué error es reversible**: no recalcular se arregla reintentando; recalcular con datos falsos, no.
 
 ---
 
@@ -190,7 +192,7 @@ Operación que atraviesa el sistema completo, combinando los tres transportes do
 4. Dentro de ese mismo hop, users-service consulta por **HTTP interno** `/internal/lock-status/{id}` en auth-service — fail-open, asume no bloqueado si auth-service no responde (Avance 2).
 5. Si el usuario es válido y no está bloqueado, bets-service persiste la apuesta en su Mongo (fuente de verdad) y responde `201` al cliente.
 6. bets-service publica el evento `bet.created` en **RabbitMQ** (exchange `bets.events` → cola `progression.recalc`) — fail-open, un fallo de publicación no revierte la apuesta ya persistida (Avance 2).
-7. progression-service recalcularía estadísticas/rachas/logros a partir de ese evento (consumidor pendiente, disparo actual solo manual vía `POST /internal/recalculate/{user_id}` — gap documentado, no bloqueante para el flujo síncrono del usuario).
+7. progression-service recalcula estadísticas/rachas/logros de ese usuario: relee su historial completo por **HTTP interno** `GET /internal/bets?user_id=` en bets-service (fail-closed, 503 si no responde: recalcular con un historial vacío borraría las estadísticas buenas) y materializa el resultado en su propia base. El evento solo **avisa** de qué usuario cambió, no transporta la apuesta, así que reprocesarlo es idempotente. *(El consumidor de RabbitMQ que dispara este paso automáticamente sigue pendiente — hoy el disparo es `POST /internal/recalculate/{user_id}`.)*
 
 ```mermaid
 sequenceDiagram
@@ -227,6 +229,11 @@ sequenceDiagram
 
     Bets--)MQ: publish bets.events (routing key bet.created)
     MQ--)Prog: cola progression.recalc (sin consumidor activo — gap)
+
+    Note over Prog,Bets: Recálculo (hoy disparado a mano)
+    Prog->>Bets: GET /internal/bets?user_id= + X-Internal-Key
+    Bets-->>Prog: 200 {items, total} (paginado)
+    Prog->>Prog: Mongo: materializa stats/rango/logros
 ```
 
 ### Diagrama final
@@ -266,6 +273,7 @@ graph TB
 
     Bets -->|TCP users.validate| Users
     Users -->|HTTP /internal/lock-status| Auth
+    Prog -->|HTTP /internal/bets?user_id=| Bets
 
     Auth -->|XADD user.login_failed/user.locked| Redis
     Redis -->|XREADGROUP| Users
