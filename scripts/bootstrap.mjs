@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SHARED_ENV_EXAMPLE = join(ROOT, 'scripts', 'shared.env.example');
 const SHARED_ENV = join(ROOT, 'scripts', '.env.shared');
+const SENTRY_DSN_PLACEHOLDER = 'use-your-sentry-project-dsn';
 
 /** Servicios a preparar: dónde vive su .env.example y qué nombre debe tener su .env. */
 const SERVICES = [
@@ -127,29 +128,68 @@ async function askPorts(rl) {
   };
 }
 
-/** Genera (o reutiliza) scripts/.env.shared: los secretos que se reparten a los 4 servicios. */
-function loadOrCreateSharedSecrets() {
-  if (existsSync(SHARED_ENV)) {
-    console.log('Reutilizando secretos existentes en scripts/.env.shared (no se rotan solos).\n');
-    const content = readFileSync(SHARED_ENV, 'utf8');
-    const values = {};
-    for (const line of content.split('\n')) {
-      const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
-      if (match) values[match[1]] = match[2];
-    }
-    return values;
+/** Lee scripts/.env.shared si ya existe (para reutilizar secretos y DSNs previos). */
+function readSharedEnvValues() {
+  if (!existsSync(SHARED_ENV)) return {};
+  const content = readFileSync(SHARED_ENV, 'utf8');
+  const values = {};
+  for (const line of content.split('\n')) {
+    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (match) values[match[1]] = match[2];
+  }
+  return values;
+}
+
+/** Genera (o reutiliza) los secretos de servicio a servicio. A diferencia de los DSN de
+ * Sentry, estos NO se vuelven a pedir en cada corrida: rotarlos invalidaría sesiones/JWTs
+ * ya emitidos, así que solo se generan la primera vez. */
+function ensureSharedSecrets(existingValues) {
+  if (existingValues.JWT_SECRET && existingValues.INTERNAL_API_KEY) {
+    console.log('\nReutilizando secretos existentes en scripts/.env.shared.\n');
+    return {
+      JWT_SECRET: existingValues.JWT_SECRET,
+      JWT_ALGORITHM: existingValues.JWT_ALGORITHM ?? 'HS256',
+      INTERNAL_API_KEY: existingValues.INTERNAL_API_KEY,
+    };
   }
 
-  console.log('Generando scripts/.env.shared con secretos nuevos (primera corrida)...\n');
-  const values = {
+  console.log('Generando scripts/.env.shared con secretos nuevos...\n');
+  return {
     JWT_SECRET: randomBytes(32).toString('hex'),
     JWT_ALGORITHM: 'HS256',
     INTERNAL_API_KEY: randomBytes(32).toString('hex'),
   };
-  const template = readFileSync(SHARED_ENV_EXAMPLE, 'utf8');
-  const generated = applyOverrides(template, values);
-  writeFileSync(SHARED_ENV, generated);
-  return values;
+}
+
+/** Los DSN de Sentry sí se preguntan en cada corrida (como los puertos):
+ *  dejar el campo en blanco es una opción válida y deshabilita
+ * el SDK en los servicios de ese stack, sin romper el arranque local. */
+async function askSentryDsns(rl, existingValues) {
+  console.log(
+    'DSN de los proyectos de Sentry (Enter para dejarlo vacío y deshabilitar el SDK en esos servicios).\n',
+  );
+
+  const previousFastapiDsn =
+    existingValues.SENTRY_FASTAPI_DSN && existingValues.SENTRY_FASTAPI_DSN !== SENTRY_DSN_PLACEHOLDER
+      ? existingValues.SENTRY_FASTAPI_DSN
+      : '';
+  const previousNestjsDsn =
+    existingValues.SENTRY_NESTJS_DSN && existingValues.SENTRY_NESTJS_DSN !== SENTRY_DSN_PLACEHOLDER
+      ? existingValues.SENTRY_NESTJS_DSN
+      : '';
+
+  const fastapiDsn = await ask(
+    rl,
+    'DSN del proyecto FastAPI (auth-service, bets-service, progression-service)',
+    previousFastapiDsn,
+  );
+  const nestjsDsn = await ask(
+    rl,
+    'DSN del proyecto NestJS (users-service, api-gateway)',
+    previousNestjsDsn,
+  );
+
+  return { SENTRY_FASTAPI_DSN: fastapiDsn, SENTRY_NESTJS_DSN: nestjsDsn };
 }
 
 /** Reemplaza `KEY=valor` línea a línea; conserva comentarios y claves sin override. */
@@ -178,6 +218,7 @@ function buildOverridesPerService(shared, ports) {
       INTERNAL_API_KEY: shared.INTERNAL_API_KEY,
       USERS_SERVICE_URL: `http://localhost:${ports.usersHttpPort}`,
       REDIS_URI: redisUri,
+      SENTRY_DSN: shared.SENTRY_FASTAPI_DSN,
     },
     'users-service': {
       HTTP_PORT: ports.usersHttpPort,
@@ -186,6 +227,7 @@ function buildOverridesPerService(shared, ports) {
       INTERNAL_API_KEY: shared.INTERNAL_API_KEY,
       AUTH_SERVICE_URL: `http://localhost:${ports.authPort}`,
       REDIS_URI: redisUri,
+      SENTRY_DSN: shared.SENTRY_NESTJS_DSN,
     },
     'bets-service': {
       MONGO_URI: `mongodb://localhost:${ports.mongoBetsPort}`,
@@ -193,9 +235,12 @@ function buildOverridesPerService(shared, ports) {
       USERS_SERVICE_TCP_HOST: 'localhost',
       USERS_SERVICE_TCP_PORT: ports.usersTcpPort,
       RABBITMQ_URL: rabbitmqUrl,
+      SENTRY_DSN: shared.SENTRY_FASTAPI_DSN,
     },
     'progression-service': {
       MONGO_URI: `mongodb://localhost:${ports.mongoProgressionPort}`,
+      INTERNAL_API_KEY: shared.INTERNAL_API_KEY,
+      SENTRY_DSN: shared.SENTRY_FASTAPI_DSN,
     },
     'api-gateway': {
       PORT: ports.gatewayPort,
@@ -206,6 +251,7 @@ function buildOverridesPerService(shared, ports) {
       USERS_SERVICE_URL: `http://localhost:${ports.usersHttpPort}`,
       BETS_SERVICE_URL: `http://localhost:${ports.betsPort}`,
       PROGRESSION_SERVICE_URL: `http://localhost:${ports.progressionPort}`,
+      SENTRY_DSN: shared.SENTRY_NESTJS_DSN,
     },
   };
 }
@@ -271,15 +317,23 @@ async function main() {
   checkDependencies();
   checkSubmodules();
 
+  const existingSharedValues = readSharedEnvValues();
+
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   let ports;
-  let shared;
+  let secrets;
+  let sentryDsns;
   try {
     ports = await askPorts(rl);
-    shared = loadOrCreateSharedSecrets();
+    secrets = ensureSharedSecrets(existingSharedValues);
+    sentryDsns = await askSentryDsns(rl, existingSharedValues);
   } finally {
     rl.close();
   }
+
+  const shared = { ...secrets, ...sentryDsns };
+  const template = readFileSync(SHARED_ENV_EXAMPLE, 'utf8');
+  writeFileSync(SHARED_ENV, applyOverrides(template, shared));
 
   const overridesPerService = buildOverridesPerService(shared, ports);
   console.log();
