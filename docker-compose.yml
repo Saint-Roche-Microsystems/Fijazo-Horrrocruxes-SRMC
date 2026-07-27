@@ -1,4 +1,59 @@
+# Orquestación consolidada de toda la plataforma: gateway + 4 microservicios, cada uno
+# con su propio contenedor Mongo, + Redis + RabbitMQ, en una sola red interna. 
+# Único puerto público: api-gateway (3000).
 services:
+  mongo-auth:
+    image: mongo:7
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongo_auth_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongo-users:
+    image: mongo:7
+    ports:
+      - "27021:27017"
+    volumes:
+      - mongo_users_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongo-bets:
+    image: mongo:7
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongo_bets_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongo-progression:
+    image: mongo:7
+    ports:
+      - "27022:27017"
+    volumes:
+      - mongo_progression_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7
     ports:
@@ -15,8 +70,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # UI de management
+      - "5672:5672"
+      - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
@@ -28,6 +83,122 @@ services:
       retries: 5
     restart: unless-stopped
 
+  auth-service:
+    build: ./auth-service
+    environment:
+      MONGO_URI: mongodb://mongo-auth:27017
+      MONGO_DB_NAME: auth_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please-use-a-secure-random-secret}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      USERS_SERVICE_URL: http://users-service:3001
+      REDIS_URI: redis://redis:6379/0
+      REDIS_SECURITY_EVENTS_STREAM: security-events
+      DEBUG: "false"
+    depends_on:
+      mongo-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  users-service:
+    build: ./users-service
+    environment:
+      HTTP_PORT: "3001"
+      TCP_HOST: "0.0.0.0"
+      TCP_PORT: "3011"
+      MONGO_URI: mongodb://mongo-users:27017
+      MONGO_DB_NAME: users_service
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      AUTH_SERVICE_URL: http://auth-service:8001
+      REDIS_URI: redis://redis:6379/0
+      REDIS_SECURITY_EVENTS_STREAM: security-events
+      REDIS_SECURITY_EVENTS_GROUP: users-service
+    depends_on:
+      mongo-users:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    restart: unless-stopped
+
+  bets-service:
+    build: ./bets-service
+    environment:
+      MONGO_URI: mongodb://mongo-bets:27017
+      MONGO_DB_NAME: bets_db
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      USERS_SERVICE_TCP_HOST: users-service
+      USERS_SERVICE_TCP_PORT: "3011"
+      RABBITMQ_URL: amqp://fijazo:fijazo@rabbitmq:5672/
+      BETS_EVENTS_EXCHANGE: bets.events
+      DEBUG: "false"
+    depends_on:
+      mongo-bets:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+    restart: unless-stopped
+
+  progression-service:
+    build: ./progression-service
+    environment:
+      MONGO_URI: mongodb://mongo-progression:27017
+      MONGO_DB_NAME: progression_service
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      # Las apuestas son de bets-service: este servicio las lee por su API interna.
+      BETS_SERVICE_URL: http://bets-service:8002
+      BETS_SERVICE_TIMEOUT_SECONDS: "10.0"
+      # Consumer de la cola que alimenta bets-service (T-026): cierra el circuito async.
+      RABBITMQ_URL: amqp://fijazo:fijazo@rabbitmq:5672/
+      PROGRESSION_RECALC_QUEUE: progression.recalc
+      DEBUG: "false"
+    depends_on:
+      mongo-progression:
+        condition: service_healthy
+      # A diferencia de bets-service, aquí sí se espera al broker: el consumer busca la
+      # cola al arrancar (get_queue) y fallaría si la topología aún no está cargada.
+      rabbitmq:
+        condition: service_healthy
+      # Solo ordena el arranque: si bets-service no está, este servicio levanta igual y el
+      # recálculo responde 503 hasta que vuelva.
+      bets-service:
+        condition: service_started
+    restart: unless-stopped
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please-use-a-secure-random-secret}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      AUTH_SERVICE_URL: http://auth-service:8001
+      USERS_SERVICE_URL: http://users-service:3001
+      BETS_SERVICE_URL: http://bets-service:8002
+      PROGRESSION_SERVICE_URL: http://progression-service:8003
+    depends_on:
+      auth-service:
+        condition: service_started
+      users-service:
+        condition: service_started
+      bets-service:
+        condition: service_started
+      progression-service:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
+  mongo_auth_data:
+  mongo_users_data:
+  mongo_bets_data:
+  mongo_progression_data:
   redis_data:
   rabbitmq_data:

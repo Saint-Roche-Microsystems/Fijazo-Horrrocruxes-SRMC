@@ -1,27 +1,25 @@
 [project]
-name = "fijazo-api"
+# Ya no hay aplicación en la raíz: el monolito se retiró al completarse la migración y
+# cada dominio vive en su propio submódulo, con su pyproject y sus dependencias.
+# Este proyecto sólo sostiene el utillaje del repo maestro:
+#   - scripts/backfill_progression.py (carga inicial de progresión)
+#   - tests-integration/ (tests que cruzan varios servicios)
+name = "fijazo-tooling"
 version = "0.1.0"
-description = ""
+description = "Utillaje del repo maestro de Fijazo: scripts de operación y tests de integración"
 authors = [
     {name = "gomiiDev",email = "carlosha176@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.14,<4.0"
 dependencies = [
-    "fastapi (>=0.139.0,<0.140.0)",
-    "uvicorn[standard] (>=0.51.0,<0.52.0)",
-    "pymongo (>=4.9,<5.0)",
-    "pydantic-settings (>=2.7.0,<3.0.0)",
-    "pyjwt (>=2.10.0,<3.0.0)",
-    "bcrypt (>=4.2.0,<5.0.0)",
-    "email-validator (>=2.2.0,<3.0.0)",
-    "openpyxl (>=3.1.0,<4.0.0)",
-    "python-multipart (>=0.0.9,<0.1.0)",
+    "httpx (>=0.28.1,<0.29.0)",
     "aio-pika (>=9.5.0,<10.0.0)"
 ]
 
 [tool.poetry]
-packages = [{include = "fijazo_api", from = "src"}]
+# Sin paquete propio: aquí no hay código de aplicación que instalar.
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -31,18 +29,21 @@ build-backend = "poetry.core.masonry.api"
 dev = [
     "pytest (>=9.1.1,<10.0.0)",
     "pytest-asyncio (>=1.0.0,<2.0.0)",
-    "httpx (>=0.28.1,<0.29.0)",
     "black (>=26.5.1,<27.0.0)",
     "ruff (>=0.15.21,<0.16.0)"
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+# `tests-integration/` necesita los contenedores levantados, así que un `pytest` pelado no
+# debe arrancarlo por accidente. El `--ignore` lo excluye del descubrimiento automático,
+# pero NO cuando se pasa la ruta explícitamente (`pytest tests-integration/`), que es la
+# forma documentada de correrlo. Los submódulos tienen su propio entorno y suite.
+addopts = "--ignore=tests-integration"
+norecursedirs = ["auth-service", "users-service", "bets-service", "progression-service", "api-gateway"]
 
 [tool.ruff]
 line-length = 100
-src = ["src"]
 
 [tool.black]
 line-length = 100

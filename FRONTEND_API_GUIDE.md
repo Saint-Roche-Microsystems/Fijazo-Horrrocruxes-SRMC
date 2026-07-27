@@ -3,9 +3,13 @@
 Backend de apuestas deportivas: autenticación, gestión de apuestas (simples y parlay), importación
 masiva por Excel, estadísticas, ranking global y gamificación (rangos + logros).
 
-- **Base URL local**: `http://localhost:8000`
-- **Documentación interactiva**: `http://localhost:8000/docs` (Swagger) — siempre la fuente de
-  verdad más actualizada; este documento es una guía de referencia rápida.
+- **Base URL local**: `http://localhost:3000` — el **api-gateway**, único puerto público del
+  sistema. El frontend nunca habla directo con un microservicio: el gateway valida el JWT y
+  hace proxy por prefijo de ruta (`/auth/*`, `/users/*`, `/bets/*`, `/statistics/*`,
+  `/ranking/*`, `/ranks/*`, `/achievements/*`) hacia el servicio dueño de cada dominio.
+- **Documentación interactiva**: cada microservicio publica su propio Swagger cuando corre con
+  `DEBUG=true` (p. ej. auth-service en `:8001/docs`, bets-service en `:8002/docs`). El gateway
+  no agrega los esquemas: es un proxy, no un compositor de OpenAPI.
 - **Formato**: JSON en todo (excepto `GET /bets/template`, que devuelve un binario `.xlsx`, y
   `POST /bets/import`, que recibe `multipart/form-data`).
 
