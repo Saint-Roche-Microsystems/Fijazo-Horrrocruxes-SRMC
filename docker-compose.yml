@@ -94,6 +94,9 @@ services:
       USERS_SERVICE_URL: http://users-service:3001
       REDIS_URI: redis://redis:6379/0
       REDIS_SECURITY_EVENTS_STREAM: security-events
+      # T-039: mismo valor que en api-gateway. Aquí se escriben las sesiones cerradas
+      # y allí se leen, así que las dos variables se mueven juntas.
+      REVOKED_TOKENS_KEY_PREFIX: ${REVOKED_TOKENS_KEY_PREFIX:-revoked_jti}
       DEBUG: "false"
     depends_on:
       mongo-auth:
@@ -182,6 +185,11 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       CORS_ORIGIN_REGEX: ${CORS_ORIGIN_REGEX:-}
+      # T-039: el guard consulta aquí las sesiones cerradas que escribe auth-service en
+      # /auth/logout. El prefijo debe ser IDÉNTICO al de auth-service: si divergen, el
+      # logout responde 200 pero el token revocado sigue pasando.
+      REDIS_URI: redis://redis:6379/0
+      REVOKED_TOKENS_KEY_PREFIX: ${REVOKED_TOKENS_KEY_PREFIX:-revoked_jti}
       AUTH_SERVICE_URL: http://auth-service:8001
       USERS_SERVICE_URL: http://users-service:3001
       BETS_SERVICE_URL: http://bets-service:8002
@@ -195,6 +203,8 @@ services:
         condition: service_started
       progression-service:
         condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

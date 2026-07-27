@@ -28,8 +28,10 @@
 
 | Código preexistente | Archivo:línea | Cómo me conecto con él |
 |---|---|---|
-| `JwtAuthGuard` — guard global que valida firma y expiración del JWT | `api-gateway/src/auth/jwt-auth.guard.ts:20` | *(pendiente)* |
-| Registro del guard como `APP_GUARD` | `api-gateway/src/auth/auth.module.ts:10` | *(pendiente)* |
+| `JwtAuthGuard` — guard global que valida firma y expiración del JWT | `api-gateway/src/auth/jwt-auth.guard.ts:25` (consulta en `:71`) | **Extendí este guard, no creé otro.** Le añadí una tercera dependencia por constructor (`RevokedTokenStore`) y la consulta de revocación después del `verify` existente. Su `canActivate` pasó de `boolean` a `Promise<boolean>`. |
+| Registro del guard como `APP_GUARD` | `api-gateway/src/auth/auth.module.ts:13` | Intacto. Al seguir siendo el mismo guard global, la revocación se aplica automáticamente a **todas** las rutas protegidas del sistema, sin tocar ni un controller. |
+| `SentryExceptionFilter` — tags `service`/`transport`/`failure_mode` | `api-gateway/src/common/sentry-exception.filter.ts:25-27` | Reutilicé ese mismo vocabulario de tags al reportar el fallo de Redis, con `failure_mode: 'fail-open'`. Los errores del store aparecen en Sentry con el mismo esquema que el resto del gateway. |
+| Bloque `api-gateway` del compose | `docker-compose.yml:176` | Le añadí `REDIS_URI`, `REVOKED_TOKENS_KEY_PREFIX` y `redis` en `depends_on`, junto a las variables que ya tenía. No creé un compose aparte. |
 | `create_access_token` — único punto de emisión del JWT | `auth-service/src/auth_service/core/security.py:34` | Le añadí el claim `jti` (UUID4) al payload existente `sub`/`role`/`exp`. No creé una función paralela de emisión: modifiqué la única que ya había, así que **todo** token del sistema queda revocable sin tocar ningún llamador. |
 | `decode_access_token` — decodificación y validación del JWT | `auth-service/src/auth_service/core/security.py:50` | Lo reutilizo tal cual en el logout para recuperar `jti` y `exp` del token presentado. No escribí una segunda decodificación con `jwt.decode`: si el secreto o el algoritmo cambian, ambos caminos siguen coincidiendo. |
 | Tabla `ROUTE_RULES` — fuente de verdad de qué rutas son públicas | `api-gateway/src/auth/route-rules.ts:14` | *(pendiente)* |
