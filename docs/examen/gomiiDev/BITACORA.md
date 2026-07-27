@@ -30,8 +30,8 @@
 |---|---|---|
 | `JwtAuthGuard` — guard global que valida firma y expiración del JWT | `api-gateway/src/auth/jwt-auth.guard.ts:20` | *(pendiente)* |
 | Registro del guard como `APP_GUARD` | `api-gateway/src/auth/auth.module.ts:10` | *(pendiente)* |
-| `create_access_token` — único punto de emisión del JWT | `auth-service/src/auth_service/core/security.py:29` | *(pendiente)* |
-| `decode_access_token` — decodificación y validación del JWT | `auth-service/src/auth_service/core/security.py:38` | *(pendiente)* |
+| `create_access_token` — único punto de emisión del JWT | `auth-service/src/auth_service/core/security.py:34` | Le añadí el claim `jti` (UUID4) al payload existente `sub`/`role`/`exp`. No creé una función paralela de emisión: modifiqué la única que ya había, así que **todo** token del sistema queda revocable sin tocar ningún llamador. |
+| `decode_access_token` — decodificación y validación del JWT | `auth-service/src/auth_service/core/security.py:50` | Lo reutilizo tal cual en el logout para recuperar `jti` y `exp` del token presentado. No escribí una segunda decodificación con `jwt.decode`: si el secreto o el algoritmo cambian, ambos caminos siguen coincidiendo. |
 | Tabla `ROUTE_RULES` — fuente de verdad de qué rutas son públicas | `api-gateway/src/auth/route-rules.ts:14` | *(pendiente)* |
 | `app.state.redis` — cliente Redis del ciclo de vida de la app | `auth-service/src/auth_service/main.py:62` | *(pendiente)* |
 | `get_redis` / `get_security_event_publisher` — factorías de inyección | `auth-service/src/auth_service/api/deps.py:34` y `:40` | *(pendiente)* |
