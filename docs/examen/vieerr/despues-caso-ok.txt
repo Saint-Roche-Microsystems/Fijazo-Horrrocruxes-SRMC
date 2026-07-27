@@ -1,0 +1,58 @@
+# Evidencia DESPUÉS — sistema en la rama exam/vieerr
+# Stack: docker compose (proyecto fijazo-horrrocruxes-srmc), gateway en :3010
+# progression-service resuelve el perfil por TCP: USERS_SERVICE_TCP_HOST=users-service:3011
+
+$ date -u
+2026-07-27T12:56:44Z
+
+== Registro (idempotente: si ya existe, 409) ==
+$ curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3010/auth/register ...
+409
+
+== Login ==
+user_id (sub del JWT) = 6a675506dfb8bd8466d1ac52
+
+== 1. Usuario EXISTENTE: GET /statistics/$USER_ID ==
+$ curl -i -s http://localhost:3010/statistics/$USER_ID -H 'Authorization: Bearer $TOKEN'
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+content-type: application/json; charset=utf-8
+Content-Length: 487
+ETag: W/"1e7-YEHuXAcp5pgvKX9OboCCXmZ5F9I"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"user_id":"6a675506dfb8bd8466d1ac52","username":"olivier","total_bets":0,"won":0,"lost":0,"void":0,"pending":0,"win_rate":0.0,"total_stake":0.0,"total_return":0.0,"net_profit":0.0,"roi":0.0,"avg_odds":0.0,"avg_stake":0.0,"biggest_win":0.0,"biggest_loss":0.0,"current_streak":0,"best_streak":0,"consistency":0.0,"distinct_sports":0,"distinct_bookmakers":0,"max_consecutive_days":0,"last_activity_at":null,"last_bet_at":null,"ranking_score":0.0,"updated_at":"2026-07-27T12:54:30.862000Z"}
+
+
+== 2. Usuario INEXISTENTE (ObjectId válido que no existe) ==
+$ curl -i -s http://localhost:3010/statistics/000000000000000000000000 -H 'Authorization: Bearer $TOKEN'
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+content-type: application/json; charset=utf-8
+Content-Length: 35
+ETag: W/"23-YRkyitvcGY37WgTZFbJHh80/IDQ"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"detail":"Usuario no encontrado."}
+
+
+== 3. user_id MAL FORMADO ==
+$ curl -i -s http://localhost:3010/statistics/no-es-un-objectid -H 'Authorization: Bearer $TOKEN'
+HTTP/1.1 400 Bad Request
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+content-type: application/json; charset=utf-8
+Content-Length: 53
+ETag: W/"35-BEnrBvBhcKG4+FQa0phdS4ccaV0"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"detail":"user_id ausente o con formato inválido."}
+
