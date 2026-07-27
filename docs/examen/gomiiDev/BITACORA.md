@@ -12,7 +12,7 @@
 | **Actividad asignada** | **A — Revocación de sesión JWT (logout real)** |
 | **Rama** | `exam/gomiiDev` |
 | **Tag** | `examen-gomiiDev` |
-| **Pull Request** | *(pendiente — se enlaza al cierre)* |
+| **Pull Request** | [#60 — T-039: Revocación de sesión JWT (logout real)](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/60) |
 | **Tarjeta Kanban** | [T-039 — Revocación de sesión JWT (logout real) con lista de revocados en Redis](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/issues/55) · tablero *Fijazo-To-Do*, columna **Done** (captura en `kanban-t039-hecho.png`) |
 | **¿Hiciste el Paso 0?** | **No** — el login JWT ya existía. Emisión del token en `auth-service/src/auth_service/core/security.py:34` (`create_access_token`), ruta de login en `auth-service/src/auth_service/api/routers/auth.py:48`, y validación en el borde con `api-gateway/src/auth/jwt-auth.guard.ts:25`. |
 

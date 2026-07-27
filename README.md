@@ -358,7 +358,8 @@ graph TB
 ### Examen final — Carlos Hernández
 
 **Actividad A — Revocación de sesión JWT (logout real)** · Tarjeta `T-039` ·
-Rama `exam/gomiiDev` · Tag `examen-gomiiDev`
+Rama `exam/gomiiDev` · Tag `examen-gomiiDev` ·
+[PR #60](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/60)
 
 📓 **[Bitácora completa](docs/examen/gomiiDev/BITACORA.md)** — decisiones, anclaje con el
 código existente, las 3 preguntas de la actividad, uso de IA y estado final.
