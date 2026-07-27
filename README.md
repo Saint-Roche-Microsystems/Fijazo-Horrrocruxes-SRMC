@@ -212,7 +212,7 @@ Los 5 microservicios (auth-service, bets-service, progression-service, users-ser
 - **No controlados**: cualquier excepción que llegue al middleware de logging (FastAPI) o al filtro global de excepciones (NestJS) sin haber sido traducida antes a una respuesta de negocio (`domain_error_handler` / `status >= 500`).
 - **Fail-open/fail-closed instrumentados a mano**: los puntos donde un servicio decide seguir adelante (o fallar) pese a un error de una dependencia.
 
-Cada evento capturado lleva las mismas etiquetas en los 5 servicios: `service` (nombre del microservicio), `transport` (`http`/`tcp`/`redis`/`rabbitmq`), `failure_mode` (`fail-open`/`fail-closed`) y `request_id`.
+Los eventos reportados vía `capture_error`/`captureException` con la convención propia llevan las mismas etiquetas en los 5 servicios: `service` (nombre del microservicio), `transport` (`http`/`tcp`/`redis`/`rabbitmq`), `failure_mode` (`fail-open`/`fail-closed`) y `request_id`. Esto aplica a los puntos instrumentados a mano; en FastAPI, un evento que llega a Sentry por la integración automática de logging (sin pasar por `capture_error`) se ve con las etiquetas por defecto del SDK (`interface_type`, `logger`), no con esta convención.
 
 ![Panel de Sentry: error capturado en un servicio FastAPI](docs/avances3/fastapi_sentry_panel_error.png)
 
@@ -357,3 +357,6 @@ graph TB
 
 ## 🏷️ Tags de entrega
 - `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 26/07/2026
+
+### Examen final — Frederick Tipán
+[enlace](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/61)
