@@ -1,0 +1,33 @@
+===============================================================
+ EVIDENCIA T-039 - Comportamiento con Redis CAIDO (fail-open)
+ Responde a la pregunta 2 de la bitacora.
+ Fecha: 2026-07-27T08:28:49-05:00
+===============================================================
+
+--- Redis arriba: la ruta protegida responde ------------------
+HTTP 200
+
+--- Se detiene Redis ------------------------------------------
+$ docker compose stop redis
+ Container fijazo-horrrocruxes-srmc-redis-1 Stopping 
+ Container fijazo-horrrocruxes-srmc-redis-1 Stopped 
+
+--- Redis caido: el guard FALLA ABIERTO y el token sigue pasando
+$ curl -i localhost:3000/users -H 'Authorization: Bearer <B>'
+HTTP 200
+
+Riesgo aceptado: durante la caida, un token YA revocado tambien
+volveria a pasar, porque el guard no puede consultar la lista.
+La alternativa (fallar cerrado) habria dejado sin servicio TODO
+el trafico autenticado del sistema.
+
+--- Log del gateway durante la caida --------------------------
+api-gateway-1  | [33m[Nest] 1  - [39m07/27/2026, 1:28:49 PM [33m   WARN[39m [38;5;3m[RevokedTokenStore] [39m[33mRedis inaccesible: connect ECONNREFUSED 172.19.0.2:6379[39m
+api-gateway-1  | [33m[Nest] 1  - [39m07/27/2026, 1:28:51 PM [33m   WARN[39m [38;5;3m[RevokedTokenStore] [39m[33mRedis inaccesible: connect ETIMEDOUT[39m
+api-gateway-1  | [31m[Nest] 1  - [39m07/27/2026, 1:28:52 PM [31m  ERROR[39m [38;5;3m[RevokedTokenStore] [39m[31mNo se pudo consultar la lista de revocados; se deja pasar el token (fail-open).[39m
+api-gateway-1  | [33m[Nest] 1  - [39m07/27/2026, 1:28:52 PM [33m   WARN[39m [38;5;3m[RevokedTokenStore] [39m[33mRedis inaccesible: connect ETIMEDOUT[39m
+
+--- Se vuelve a levantar Redis --------------------------------
+ Container fijazo-horrrocruxes-srmc-redis-1 Starting 
+ Container fijazo-horrrocruxes-srmc-redis-1 Started 
+Ruta protegida tras recuperar Redis: HTTP 200
