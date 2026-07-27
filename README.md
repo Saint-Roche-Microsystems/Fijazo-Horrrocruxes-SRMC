@@ -355,5 +355,29 @@ graph TB
 
 ---
 
+### Examen final — Carlos Hernández
+
+**Actividad A — Revocación de sesión JWT (logout real)** · Tarjeta `T-039` ·
+Rama `exam/gomiiDev` · Tag `examen-gomiiDev` ·
+[PR #60](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/60)
+
+📓 **[Bitácora completa](docs/examen/gomiiDev/BITACORA.md)** — decisiones, anclaje con el
+código existente, las 3 preguntas de la actividad, uso de IA y estado final.
+
+Hasta ahora un token robado seguía siendo válido hasta expirar: cerrar sesión solo lo
+borraba en el cliente. Ahora el token lleva un `jti` único, `POST /auth/logout` lo registra
+en una lista de revocados en Redis con TTL igual a su vida restante, y el `JwtAuthGuard` ya
+existente del api-gateway la consulta antes de dejar pasar cualquier petición: token
+revocado → 401 con un mensaje distinguible del de token inválido.
+
+| | |
+|---|---|
+| **Qué cambia** | `auth-service`: claim `jti`, puerto `RevokedTokenStore` y ruta `/auth/logout`. `api-gateway`: el guard existente consulta la lista (extendido, no reemplazado). |
+| **Evidencia** | [`docs/examen/gomiiDev/`](docs/examen/gomiiDev/) — capturas antes/después, recorrido completo y demostración del fail-open con Redis caído. |
+| **Pruebas** | 29 unitarios + 26 e2e en api-gateway, 44 en auth-service. |
+
+---
+
 ## 🏷️ Tags de entrega
 - `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 26/07/2026
+- `examen-gomiiDev` — 27/07/2026 · examen final, Actividad A (Carlos Hernández)

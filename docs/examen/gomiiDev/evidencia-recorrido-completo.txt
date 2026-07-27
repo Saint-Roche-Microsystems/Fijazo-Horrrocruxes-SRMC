@@ -1,0 +1,45 @@
+===============================================================
+ EVIDENCIA T-039 - Revocacion de sesion JWT (logout real)
+ Ejecutado contra el stack completo del docker-compose
+ Fecha: 2026-07-27T08:28:27-05:00
+===============================================================
+
+Token del usuario A (examen@test.com): eyJhbGciOiJIUzI1NiIsInR5c...otCf8zR5Vmbw
+  jti: 6a4ef63d-bd2e-4f83-8e78-71c5af8ff3a3
+Token del usuario B (bruno@test.com):  eyJhbGciOiJIUzI1NiIsInR5c...DwG8hGIk0bU8
+  jti: 1afabfb1-f824-4de2-9d35-72f7190f8e2d
+
+--- 1. ANTES: ruta protegida con el token de A -----------------
+$ curl -i localhost:3000/users -H 'Authorization: Bearer <A>'
+HTTP 200
+
+--- 2. LOGOUT de A --------------------------------------------
+$ curl -i -X POST localhost:3000/auth/logout -H 'Authorization: Bearer <A>'
+{"detail":"Sesión cerrada."}
+HTTP 200
+
+--- 3. DESPUES: LA MISMA peticion con EL MISMO token de A ------
+$ curl -i localhost:3000/users -H 'Authorization: Bearer <A>'
+{"message":"Sesión cerrada: el token fue revocado. Vuelve a iniciar sesión.","error":"Unauthorized","statusCode":401}
+HTTP 401
+
+--- 4. BORDE: logout SIN token --------------------------------
+{"message":"Token no proporcionado.","error":"Unauthorized","statusCode":401}
+HTTP 401
+
+--- 5. BORDE: logout DOS VECES con el mismo token -------------
+(el guard ya rechaza el token revocado antes de que llegue a
+ auth-service: no revienta, responde 401 coherente con que la
+ sesion ya estaba cerrada)
+{"message":"Sesión cerrada: el token fue revocado. Vuelve a iniciar sesión.","error":"Unauthorized","statusCode":401}
+HTTP 401
+
+--- 6. BORDE: el token vigente de B sigue funcionando ---------
+$ curl -i localhost:3000/users -H 'Authorization: Bearer <B>'
+HTTP 200
+
+--- 7. La clave de revocacion en Redis, con su TTL ------------
+$ redis-cli ttl revoked_jti:6a4ef63d-bd2e-4f83-8e78-71c5af8ff3a3        (A cerro sesion)
+86399
+$ redis-cli exists revoked_jti:1afabfb1-f824-4de2-9d35-72f7190f8e2d     (B NO cerro sesion)
+0
