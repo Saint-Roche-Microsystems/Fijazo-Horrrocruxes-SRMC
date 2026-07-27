@@ -242,6 +242,8 @@ function buildOverridesPerService(shared, ports) {
       INTERNAL_API_KEY: shared.INTERNAL_API_KEY,
       // Las apuestas no están en su Mongo: las lee de /internal/bets de bets-service.
       BETS_SERVICE_URL: `http://localhost:${ports.betsPort}`,
+      // Consume la cola que alimenta bets-service; mismo broker que el publisher.
+      RABBITMQ_URL: rabbitmqUrl,
       SENTRY_DSN: shared.SENTRY_FASTAPI_DSN,
     },
     'api-gateway': {

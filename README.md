@@ -131,7 +131,9 @@ Transporte elegido: **RabbitMQ** (exchange topic `bets.events`, cola `progressio
 
 ![Mensaje encolado en progression.recalc, listo para consumirse](docs/avances2/progression_consumer.png)
 
-En la captura del exchange se ve el pico de tasa de mensajes en el momento del `POST /bets`, y el mensaje ya en la cola `progression.recalc` (`Ready: 3`, sin consumidores activos) — evidencia de que la publicación funciona de forma independiente de si hay o no un consumidor levantado del otro lado.
+En la captura del exchange se ve el pico de tasa de mensajes en el momento del `POST /bets`, y el mensaje ya en la cola `progression.recalc` (`Ready: 3`, sin consumidores activos) — evidencia de que la publicación funciona de forma independiente de si hay o no un consumidor levantado del otro lado. Fue tomada antes de que existiera el consumer: hoy `progression-service` drena esa cola, y el desacople que muestra la captura sigue valiendo (si el consumidor se cae, los mensajes se acumulan y se procesan al volver).
+
+El consumidor confirma cada mensaje sólo cuando el recálculo terminó (*at-least-once*), lo que es seguro porque recalcular es idempotente: el evento sólo dice **qué usuario** cambió y `progression-service` relee su historial completo. Si `bets-service` no responde, el mensaje vuelve a la cola en vez de descartarse — la alternativa dejaría la proyección obsoleta de forma permanente. El detalle de la política está en [progression-service/README.md](progression-service/README.md).
 
 ### Comparación de transportes
 | Transporte | Tipo | Patrón | Uso en el proyecto |
@@ -192,7 +194,7 @@ Operación que atraviesa el sistema completo, combinando los tres transportes do
 4. Dentro de ese mismo hop, users-service consulta por **HTTP interno** `/internal/lock-status/{id}` en auth-service — fail-open, asume no bloqueado si auth-service no responde (Avance 2).
 5. Si el usuario es válido y no está bloqueado, bets-service persiste la apuesta en su Mongo (fuente de verdad) y responde `201` al cliente.
 6. bets-service publica el evento `bet.created` en **RabbitMQ** (exchange `bets.events` → cola `progression.recalc`) — fail-open, un fallo de publicación no revierte la apuesta ya persistida (Avance 2).
-7. progression-service recalcula estadísticas/rachas/logros de ese usuario: relee su historial completo por **HTTP interno** `GET /internal/bets?user_id=` en bets-service (fail-closed, 503 si no responde: recalcular con un historial vacío borraría las estadísticas buenas) y materializa el resultado en su propia base. El evento solo **avisa** de qué usuario cambió, no transporta la apuesta, así que reprocesarlo es idempotente. *(El consumidor de RabbitMQ que dispara este paso automáticamente sigue pendiente — hoy el disparo es `POST /internal/recalculate/{user_id}`.)*
+7. El consumidor de `progression.recalc` en progression-service recibe el evento y recalcula estadísticas/rachas/logros de ese usuario: relee su historial completo por **HTTP interno** `GET /internal/bets?user_id=` en bets-service (fail-closed, 503 si no responde: recalcular con un historial vacío borraría las estadísticas buenas) y materializa el resultado en su propia base. El evento solo **avisa** de qué usuario cambió, no transporta la apuesta, así que reprocesarlo es idempotente. `POST /internal/recalculate/{user_id}` queda como disparo manual.
 
 ```mermaid
 sequenceDiagram
@@ -228,12 +230,13 @@ sequenceDiagram
     GW-->>Cliente: 201 Created
 
     Bets--)MQ: publish bets.events (routing key bet.created)
-    MQ--)Prog: cola progression.recalc (sin consumidor activo — gap)
+    MQ--)Prog: entrega de la cola progression.recalc
 
-    Note over Prog,Bets: Recálculo (hoy disparado a mano)
+    Note over Prog,Bets: Recálculo disparado por el evento
     Prog->>Bets: GET /internal/bets?user_id= + X-Internal-Key
     Bets-->>Prog: 200 {items, total} (paginado)
     Prog->>Prog: Mongo: materializa stats/rango/logros
+    Prog--)MQ: ack (tras persistir; si falla, vuelve a la cola)
 ```
 
 ### Diagrama final
@@ -279,7 +282,7 @@ graph TB
     Redis -->|XREADGROUP| Users
 
     Bets -->|publish bet.created/updated/deleted| MQ
-    MQ -.->|sin consumidor activo| Prog
+    MQ -->|consume progression.recalc| Prog
 
     Auth --> MAuth
     Users --> MUsers

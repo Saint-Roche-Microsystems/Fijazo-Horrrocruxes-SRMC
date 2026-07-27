@@ -153,9 +153,16 @@ services:
       # Las apuestas son de bets-service: este servicio las lee por su API interna.
       BETS_SERVICE_URL: http://bets-service:8002
       BETS_SERVICE_TIMEOUT_SECONDS: "10.0"
+      # Consumer de la cola que alimenta bets-service (T-026): cierra el circuito async.
+      RABBITMQ_URL: amqp://fijazo:fijazo@rabbitmq:5672/
+      PROGRESSION_RECALC_QUEUE: progression.recalc
       DEBUG: "false"
     depends_on:
       mongo-progression:
+        condition: service_healthy
+      # A diferencia de bets-service, aquí sí se espera al broker: el consumer busca la
+      # cola al arrancar (get_queue) y fallaría si la topología aún no está cargada.
+      rabbitmq:
         condition: service_healthy
       # Solo ordena el arranque: si bets-service no está, este servicio levanta igual y el
       # recálculo responde 503 hasta que vuelva.

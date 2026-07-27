@@ -1,10 +1,13 @@
-# Compose de test para T-018: levanta los tres servicios reales de la cadena síncrona
-# A->B->C (bets-service -> users-service -> auth-service) contra sus propias bases de
-# datos, sin stubs. No incluye RabbitMQ: esta cadena es completamente síncrona (TCP+HTTP).
+# Compose de test de integración, sin stubs, cada servicio contra su propia base:
+#
+#   - T-018: la cadena síncrona A->B->C (bets-service -> users-service -> auth-service),
+#     por TCP y HTTP.
+#   - T-026: el circuito asíncrono bets-service -> RabbitMQ -> progression-service, que
+#     necesita el broker y el servicio de progresión levantados.
 #
 # Uso:
 #   docker compose -f tests-integration/docker-compose.yml up -d --build
-#   poetry run pytest tests-integration/test_chain_abc.py -q
+#   poetry run pytest tests-integration/ -q
 #   docker compose -f tests-integration/docker-compose.yml down -v
 
 services:
@@ -19,8 +22,12 @@ services:
       INTERNAL_API_KEY: e2e-test-internal-key
       USERS_SERVICE_URL: http://users-service:3001
       USERS_SERVICE_TIMEOUT_SECONDS: "5.0"
+      REDIS_URI: redis://redis:6379/0
+      REDIS_SECURITY_EVENTS_STREAM: security-events
     depends_on:
       auth-mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -44,12 +51,27 @@ services:
       MONGO_DB_NAME: users_db
       INTERNAL_API_KEY: e2e-test-internal-key
       AUTH_SERVICE_URL: http://auth-service:8001
+      # users-service abre el consumer de security-events al arrancar: sin Redis el
+      # proceso queda en bucle de reconexión y nunca responde a /health.
+      REDIS_URI: redis://redis:6379/0
+      REDIS_SECURITY_EVENTS_STREAM: security-events
+      REDIS_SECURITY_EVENTS_GROUP: users-service
     depends_on:
       users-mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       auth-service:
         condition: service_started
     restart: unless-stopped
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   users-mongo:
     image: mongo:7
@@ -70,14 +92,65 @@ services:
       USERS_SERVICE_TCP_HOST: users-service
       USERS_SERVICE_TCP_PORT: "3011"
       USERS_SERVICE_TIMEOUT_SECONDS: "5.0"
+      RABBITMQ_URL: amqp://fijazo:fijazo@rabbitmq:5672/
+      BETS_EVENTS_EXCHANGE: bets.events
     depends_on:
       bets-mongo:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       users-service:
         condition: service_started
     restart: unless-stopped
 
   bets-mongo:
+    image: mongo:7
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Misma topología que en producción (exchange bets.events -> cola progression.recalc):
+  # se reutilizan los ficheros de la raíz para que el test no pruebe una copia divergente.
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ../rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ../rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  progression-service:
+    build: ../progression-service
+    ports:
+      - "8003:8003"
+    environment:
+      MONGO_URI: mongodb://progression-mongo:27017
+      MONGO_DB_NAME: progression_service
+      INTERNAL_API_KEY: e2e-test-internal-key
+      BETS_SERVICE_URL: http://bets-service:8002
+      BETS_SERVICE_TIMEOUT_SECONDS: "5.0"
+      RABBITMQ_URL: amqp://fijazo:fijazo@rabbitmq:5672/
+      PROGRESSION_RECALC_QUEUE: progression.recalc
+      # Corto para que un fallo transitorio no agote el deadline del test.
+      RABBITMQ_RETRY_COOLDOWN_SECONDS: "1.0"
+    depends_on:
+      progression-mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      bets-service:
+        condition: service_started
+    restart: unless-stopped
+
+  progression-mongo:
     image: mongo:7
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
