@@ -57,7 +57,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -173,13 +173,15 @@ services:
   api-gateway:
     build: ./api-gateway
     ports:
-      - "3000:3000"
+      - "${GATEWAY_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       PORT: "3000"
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please-use-a-secure-random-secret}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-me-internal-service-secret}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      CORS_ORIGIN_REGEX: ${CORS_ORIGIN_REGEX:-}
       AUTH_SERVICE_URL: http://auth-service:8001
       USERS_SERVICE_URL: http://users-service:3001
       BETS_SERVICE_URL: http://bets-service:8002

@@ -13,3 +13,6 @@
 [submodule "progression-service"]
 	path = progression-service
 	url = https://github.com/Saint-Roche-Microsystems/Progression-Service.git
+[submodule "fijazo"]
+	path = fijazo
+	url = https://github.com/Saint-Roche-Microsystems/Fijazo-Frontend.git
