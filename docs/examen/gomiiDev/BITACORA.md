@@ -33,11 +33,14 @@
 | `create_access_token` — único punto de emisión del JWT | `auth-service/src/auth_service/core/security.py:34` | Le añadí el claim `jti` (UUID4) al payload existente `sub`/`role`/`exp`. No creé una función paralela de emisión: modifiqué la única que ya había, así que **todo** token del sistema queda revocable sin tocar ningún llamador. |
 | `decode_access_token` — decodificación y validación del JWT | `auth-service/src/auth_service/core/security.py:50` | Lo reutilizo tal cual en el logout para recuperar `jti` y `exp` del token presentado. No escribí una segunda decodificación con `jwt.decode`: si el secreto o el algoritmo cambian, ambos caminos siguen coincidiendo. |
 | Tabla `ROUTE_RULES` — fuente de verdad de qué rutas son públicas | `api-gateway/src/auth/route-rules.ts:14` | *(pendiente)* |
-| `app.state.redis` — cliente Redis del ciclo de vida de la app | `auth-service/src/auth_service/main.py:62` | *(pendiente)* |
-| `get_redis` / `get_security_event_publisher` — factorías de inyección | `auth-service/src/auth_service/api/deps.py:34` y `:40` | *(pendiente)* |
-| `SecurityEventPublisher` — puerto `Protocol` de la capa de aplicación | `auth-service/src/auth_service/application/ports.py:45` | *(pendiente)* |
-| `RedisSecurityEventPublisher` — precedente de fail-open ante Redis caído | `auth-service/src/auth_service/infrastructure/events/redis_stream_publisher.py:30` | *(pendiente)* |
-| Servicio `redis` del stack | `docker-compose.yml:57` | *(pendiente)* |
+| `app.state.redis` — cliente Redis del ciclo de vida de la app | `auth-service/src/auth_service/main.py:62` | La lista de revocados reutiliza **esta misma conexión**. No abrí un cliente Redis nuevo ni añadí nada al `lifespan`: la conexión ya se crea al arrancar y se cierra en el `finally`. |
+| `get_redis` / `get_security_event_publisher` — factorías de inyección | `auth-service/src/auth_service/api/deps.py:41` y `:47` | Añadí `get_revoked_token_store` calcado de `get_security_event_publisher` (mismos parámetros `redis` + `settings`, mismo retorno tipado por el puerto) y lo enchufé a `get_auth_service`. |
+| `AuthService` — servicio de aplicación con `register` y `login` | `auth-service/src/auth_service/application/services/auth_service.py:33` | Le añadí el método `logout` **dentro de la misma clase**, no un servicio nuevo. Recibe el store como sexta dependencia opcional, igual que las cinco que ya tenía. |
+| `SecurityEventPublisher` — puerto `Protocol` de la capa de aplicación | `auth-service/src/auth_service/application/ports.py:45` | Modelé `RevokedTokenStore` como un `Protocol` hermano, con el mismo estilo de docstring, para que el caso de uso dependa de la capacidad y no de Redis. |
+| `RedisSecurityEventPublisher` — precedente de fail-open ante Redis caído | `auth-service/src/auth_service/infrastructure/events/redis_stream_publisher.py:30` | De aquí saqué la decisión de modo de fallo del guard (ver Decisión 2). El store de escritura hace lo contrario **a propósito**, y el porqué queda documentado en el propio código. |
+| Excepciones de dominio → HTTP en el handler central | `auth-service/src/auth_service/main.py:154` | El logout lanza `InvalidCredentialsError` y el handler ya la traduce a 401 con `WWW-Authenticate: Bearer`. No registré ningún handler ni devolví `JSONResponse` a mano. |
+| Fixture `test_redis` de la suite | `auth-service/tests/conftest.py:72` | La extendí para que limpie también las claves de revocación entre tests, en vez de crear una fixture paralela. |
+| Servicio `redis` del stack | `docker-compose.yml:57` | Es el almacén de la lista de revocados. Ya estaba levantado para el stream `security-events`; no añadí ningún servicio nuevo al compose. |
 
 **¿Qué convención del repositorio seguí para que mi código no desentone?**
 
