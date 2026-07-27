@@ -13,7 +13,7 @@
 | **Rama** | `exam/gomiiDev` |
 | **Tag** | `examen-gomiiDev` |
 | **Pull Request** | *(pendiente — se enlaza al cierre)* |
-| **Tarjeta Kanban** | T-039 — Revocación de sesión JWT (logout real) *(enlace pendiente)* |
+| **Tarjeta Kanban** | [T-039 — Revocación de sesión JWT (logout real) con lista de revocados en Redis](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/issues/55) · tablero *Fijazo-To-Do*, columna **Done** (captura en `kanban-t039-hecho.png`) |
 | **¿Hiciste el Paso 0?** | **No** — el login JWT ya existía. Emisión del token en `auth-service/src/auth_service/core/security.py:34` (`create_access_token`), ruta de login en `auth-service/src/auth_service/api/routers/auth.py:48`, y validación en el borde con `api-gateway/src/auth/jwt-auth.guard.ts:25`. |
 
 ---
@@ -196,6 +196,7 @@ auth-service y users-service, así que lo que se ve es el sistema entero funcion
 | `despues-logout-200.png` | **El cierre de sesión.** `POST http://localhost:3000/auth/logout` con **ese mismo token** → **200 OK** (21 ms) y `{"detail": "Sesión cerrada."}`. En este instante auth-service ha escrito `revoked_jti:<jti>` en Redis con el TTL de la vida restante del token. |
 | `despues-ruta-protegida-401.png` | **La prueba de que la revocación es real.** Es **la misma petición** que la primera captura —mismo método `GET`, misma URL `localhost:3000/users`, mismo token— y ahora responde **401 Unauthorized** (7 ms) con `"Sesión cerrada: el token fue revocado. Vuelve a iniciar sesión."`. El token no ha expirado ni ha cambiado: lo único distinto es que su `jti` está en la lista de revocados. Comparar esta captura con la primera es el examen entero en dos imágenes. |
 | `borde-logout-dos-veces.png` | **Caso borde: logout repetido.** Segundo `POST /auth/logout` con el token ya revocado → **401**, con el mismo mensaje de sesión cerrada. **No revienta**: no hay 500 ni excepción, el sistema responde de forma coherente. Ver la nota de abajo sobre por qué es 401 y no 200. |
+| `kanban-t039-hecho.png` | El tablero **Fijazo-To-Do** del grupo con la tarjeta **T-039 — Revocación de sesión JWT (logout real) con lista de revocados en Redis** (issue #55) en la columna **Done**. |
 
 **Nota sobre el doble logout — divergencia consciente respecto al enunciado.**
 El enunciado pide que el segundo logout "no reviente". No revienta, pero devuelve **401 en
