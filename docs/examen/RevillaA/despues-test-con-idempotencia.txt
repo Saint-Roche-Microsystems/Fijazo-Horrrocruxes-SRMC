@@ -1,0 +1,67 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\revil\AppData\Local\pypoetry\Cache\virtualenvs\progression-service-QpF-vR8c-py3.14\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\revil\Documents\Desarrollo\Distribuidas\Fijazo-Horrrocruxes-SRMC\progression-service
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.14.2, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 55 items
+
+tests/test_achievement_evaluator.py::test_streaks_by_best_streak PASSED  [  1%]
+tests/test_achievement_evaluator.py::test_experience_thresholds PASSED   [  3%]
+tests/test_achievement_evaluator.py::test_profitability PASSED           [  5%]
+tests/test_achievement_evaluator.py::test_precision_requires_minimum_decided PASSED [  7%]
+tests/test_achievement_evaluator.py::test_activity_streak_and_monthly PASSED [  9%]
+tests/test_achievement_evaluator.py::test_variety_bookmakers_and_sports PASSED [ 10%]
+tests/test_achievement_evaluator.py::test_monotonic_skips_already_unlocked PASSED [ 12%]
+tests/test_catalog_endpoints.py::test_health PASSED                      [ 14%]
+tests/test_catalog_endpoints.py::test_ranks_catalog PASSED               [ 16%]
+tests/test_catalog_endpoints.py::test_achievements_catalog PASSED        [ 18%]
+tests/test_catalog_endpoints.py::test_internal_recalculate_requires_the_service_secret PASSED [ 20%]
+tests/test_http_bet_repository.py::test_parses_a_single_page PASSED      [ 21%]
+tests/test_http_bet_repository.py::test_parses_legs_of_a_parlay PASSED   [ 23%]
+tests/test_http_bet_repository.py::test_datetimes_are_timezone_aware PASSED [ 25%]
+tests/test_http_bet_repository.py::test_datetime_without_offset_is_assumed_utc PASSED [ 27%]
+tests/test_http_bet_repository.py::test_combined_odds_falls_back_to_odds PASSED [ 29%]
+tests/test_http_bet_repository.py::test_paginates_until_total PASSED     [ 30%]
+tests/test_http_bet_repository.py::test_stops_on_short_page_even_if_total_lies PASSED [ 32%]
+tests/test_http_bet_repository.py::test_deduplicates_bets_repeated_across_pages PASSED [ 34%]
+tests/test_http_bet_repository.py::test_respects_max_pages PASSED        [ 36%]
+tests/test_http_bet_repository.py::test_sends_internal_key_and_request_id PASSED [ 38%]
+tests/test_http_bet_repository.py::test_transport_error_raises_instead_of_returning_empty PASSED [ 40%]
+tests/test_http_bet_repository.py::test_error_status_codes_raise_with_the_code_in_the_message[401] PASSED [ 41%]
+tests/test_http_bet_repository.py::test_error_status_codes_raise_with_the_code_in_the_message[404] PASSED [ 43%]
+tests/test_http_bet_repository.py::test_error_status_codes_raise_with_the_code_in_the_message[500] PASSED [ 45%]
+tests/test_http_bet_repository.py::test_invalid_json_raises PASSED       [ 47%]
+tests/test_http_bet_repository.py::test_distinct_user_ids_parses_the_wrapper PASSED [ 49%]
+tests/test_http_bet_repository.py::test_distinct_user_ids_raises_on_error PASSED [ 50%]
+tests/test_rabbitmq_consumer.py::test_recalculates_and_acks_on_bet_created PASSED [ 52%]
+tests/test_rabbitmq_consumer.py::test_handles_updated_and_deleted_too PASSED [ 54%]
+tests/test_rabbitmq_consumer.py::test_malformed_body_is_acked_and_never_recalculates PASSED [ 56%]
+tests/test_rabbitmq_consumer.py::test_message_without_user_id_is_acked PASSED [ 58%]
+tests/test_rabbitmq_consumer.py::test_unknown_event_type_is_ignored_and_acked PASSED [ 60%]
+tests/test_rabbitmq_consumer.py::test_bets_source_unavailable_requeues_instead_of_dropping PASSED [ 61%]
+tests/test_rabbitmq_consumer.py::test_requeue_waits_the_cooldown_before_returning PASSED [ 63%]
+tests/test_rabbitmq_consumer.py::test_unexpected_error_is_discarded_without_requeue PASSED [ 65%]
+tests/test_rabbitmq_consumer.py::test_a_failing_message_does_not_stop_the_next_one PASSED [ 67%]
+tests/test_rabbitmq_consumer.py::test_request_id_from_the_event_reaches_the_recalculation PASSED [ 69%]
+tests/test_rabbitmq_consumer.py::test_event_without_request_id_still_gets_one PASSED [ 70%]
+tests/test_rabbitmq_consumer.py::test_duplicate_event_recalculates_only_once PASSED [ 72%]
+tests/test_rabbitmq_consumer.py::test_two_distinct_events_recalculate_twice PASSED [ 74%]
+tests/test_rabbitmq_consumer.py::test_message_without_bet_id_is_acked_and_never_recalculates PASSED [ 76%]
+tests/test_rabbitmq_consumer.py::test_message_without_occurred_at_is_acked_and_never_recalculates PASSED [ 78%]
+tests/test_ranks.py::test_ranks_are_ordered_by_threshold PASSED          [ 80%]
+tests/test_ranks.py::test_score_monotonic_in_win_rate PASSED             [ 81%]
+tests/test_ranks.py::test_antiquity_increases_score PASSED               [ 83%]
+tests/test_ranks.py::test_low_sample_is_penalized PASSED                 [ 85%]
+tests/test_ranks.py::test_resolve_rank_tiers PASSED                      [ 87%]
+tests/test_ranks.py::test_rank_progress_midway PASSED                    [ 89%]
+tests/test_ranks.py::test_rank_progress_max_rank PASSED                  [ 90%]
+tests/test_recalculate_fails_closed.py::test_recalculate_does_not_persist_when_bets_are_unreachable PASSED [ 92%]
+tests/test_recalculate_fails_closed.py::test_recalculate_persists_when_bets_are_readable PASSED [ 94%]
+tests/test_statistics_calculator.py::test_counts_and_win_rate PASSED     [ 96%]
+tests/test_statistics_calculator.py::test_financials_exclude_pending PASSED [ 98%]
+tests/test_statistics_calculator.py::test_empty_history_is_zeroed PASSED [100%]
+
+============================= 55 passed in 11.17s =============================
