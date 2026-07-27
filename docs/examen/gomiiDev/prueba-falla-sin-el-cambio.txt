@@ -1,0 +1,20 @@
+================================================================
+ PRUEBA DE QUE LOS TESTS FALLAN SIN MI CAMBIO
+ Se elimina unicamente la consulta a la lista de revocados en
+ api-gateway/src/auth/jwt-auth.guard.ts; el resto queda igual.
+ Fecha: 2026-07-27T08:20:16-05:00
+================================================================
+
+--- npx jest jwt-auth.guard ---
+  ● JwtAuthGuard › lista de sesiones revocadas › rechaza un token cuyo jti está en la lista de revocados
+  ● JwtAuthGuard › lista de sesiones revocadas › distingue el 401 por revocación del 401 por token inválido
+  ● JwtAuthGuard › lista de sesiones revocadas › confía en el contrato del store: la política de fallo no vive aquí
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 10 passed, 13 total
+
+--- npx jest --config ./test/jest-e2e.json token-revocation ---
+  ● Revocación de sesión (e2e) › la MISMA petición con el MISMO token pasa de 200 a 401 tras revocarlo
+  ● Revocación de sesión (e2e) › el 401 por revocación se distingue del 401 por token inválido
+  ● Revocación de sesión (e2e) › revocar la sesión de un usuario no afecta al token vigente de otro
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 3 total

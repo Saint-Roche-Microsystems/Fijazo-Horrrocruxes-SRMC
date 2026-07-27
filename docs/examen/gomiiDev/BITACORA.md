@@ -94,11 +94,20 @@ Herramienta: **Claude (Claude Code)**, integrado en VS Code con acceso de lectur
 |:--:|---|---|---|
 | 1 | Que analizara el repositorio del grupo y determinara qué exige la Actividad A antes de escribir nada, sin proponer código todavía. | Un mapa de la arquitectura con `archivo:línea`: el guard global en `jwt-auth.guard.ts:20`, su registro como `APP_GUARD` en `auth.module.ts:10`, y tres hallazgos — (a) el token **no** lleva `jti`, (b) las rutas públicas se deciden por la tabla `ROUTE_RULES` y no por el decorador `@Public()`, (c) Redis ya está en el `docker-compose`. Dejó tres decisiones abiertas en vez de resolverlas solo. | Acepté el análisis tras verificar yo mismo cada `archivo:línea` que citó. **No** le dejé decidir la ubicación del logout ni el modo de fallo: eran decisiones de arquitectura de *mi* sistema y las tomé yo (ver sección 3). Le exigí explícitamente que no tocara `route-rules.ts`. |
 | 2 | La información para la tarjeta del Kanban, en el formato de tabla que ya usa el tablero del grupo. | Tarjeta **T-039** con título, responsable, descripción, alcance por submódulo, anclaje, criterios de aceptación y definición de hecho. Dedujo el ID mirando el máximo del historial (`T-038`). | Verifiqué que `T-039` fuera realmente el siguiente ID libre antes de crear la tarjeta. Descarté su propuesta alternativa de partirla en cuatro subtarjetas (T-039a…d) y la creé como una sola, para no desentonar con el resto del tablero, que usa una tarjeta por entregable. |
-| 3 | Un plan de implementación dividido en 4 commits como mínimo, con la rama creada y la bitácora rellenándose a medida que avanzo. | Plan de 6 commits semánticos, con las ramas `exam/gomiiDev` en el superproyecto y los dos submódulos afectados, y el orden de push de submódulos antes que superproyecto. | *(entrada abierta — se completa al ejecutar el plan)* |
+| 3 | Un plan de implementación dividido en 4 commits como mínimo, con la rama creada y la bitácora rellenándose a medida que avanzo. | Plan de 6 commits semánticos, con las ramas `exam/gomiiDev` en el superproyecto y los dos submódulos afectados, y el orden de push de submódulos antes que superproyecto. | Le quité el control de git: los commits los ejecuto yo, para revisar cada diff antes de que entre al historial. También decidí yo qué hacer con los tokens ya emitidos sin `jti` (dejarlos pasar hasta que expiren, en vez de invalidar todas las sesiones vivas al desplegar). |
+| 4 | Que implementara el guard y las pruebas de revocación. | El guard extendido y una batería de tests. Entre ellos, uno llamado *"falla abierto: si el almacén de revocados no responde, el token pasa"* que en realidad afirmaba `rejects.toThrow()` — lo contrario de lo que dice su nombre — y que **pasaba en verde**. | Ver el apartado siguiente. Es el error más grave de la sesión y el que más me hizo revisar lo que estaba aceptando. |
 
 **¿En qué se equivocó respecto a mi repositorio?**
 
-*(pendiente — se documenta el caso concreto cuando ocurra, con cómo lo detecté)*
+**Caso 1 — un test que decía una cosa y comprobaba la contraria, en verde.** Al escribir las pruebas del guard, generó un caso titulado *"falla abierto: si el almacén de revocados no responde, el token pasa"* cuya aserción era `await expect(guard.canActivate(context)).rejects.toThrow()`. Es decir: el nombre prometía que la petición **pasa** y el código exigía que **falle**. Y salió en verde, que es lo que lo hacía peligroso.
+
+*Cómo lo detecté:* me chocó que un test de "fail-open" esperara una excepción, y al mirarlo entendí la causa de fondo: el test inyectaba un `RevokedTokenStore` falso que lanzaba, pero **la política de fail-open no vive en el guard, vive dentro de `RevokedTokenStore.isRevoked`**, que captura el error y devuelve `false` (`api-gateway/src/auth/revoked-token.store.ts:80`). Al sustituir el store por un doble, el test saltaba por encima justo de la capa que implementaba lo que decía estar probando. No probaba nada, y encima dejaba documentado en el repo lo contrario de cómo se comporta el sistema.
+
+*Qué hice:* lo sustituí por dos pruebas en el sitio correcto. En `revoked-token.store.spec.ts` apunto el store a un puerto cerrado (`redis://127.0.0.1:1`) y compruebo que `isRevoked` devuelve `false` en vez de lanzar — el fail-open real, contra un Redis realmente inaccesible. Y en el guard dejé un test que documenta el contrato: el guard confía en que el store nunca lanza, y la política no se duplica en dos capas.
+
+**Caso 2 — un bug de producción que salió gracias a arreglar el caso 1.** Al ejecutar la prueba nueva contra el Redis inaccesible, falló, pero no donde yo esperaba: `onModuleDestroy` llamaba a `client.quit()`, y con `enableOfflineQueue: false` ese comando **lanza** si la conexión ya está caída. Es decir, apagar el gateway habría reventado el ciclo de apagado de Nest cada vez que Redis no estuviera disponible. Lo arreglé cayendo a `disconnect()` cuando `quit()` falla (`revoked-token.store.ts:94`). El error no lo detectó nadie leyendo el código: lo detectó la prueba que casi no llego a escribir.
+
+**Conclusión que me llevo:** la IA acertó en el mapa del repositorio —las rutas y los `archivo:línea` que citó eran correctos y los verifiqué uno a uno— pero un test suyo en verde no es garantía de nada. Aquí el verde ocultaba que la aserción contradecía su propio nombre.
 
 ---
 
@@ -122,10 +131,44 @@ Herramienta: **Claude (Claude Code)**, integrado en VS Code con acceso de lectur
 
 | | |
 |---|---|
-| **Archivo de la prueba** | *(pendiente)* |
-| **Comando para ejecutarla** | *(pendiente)* |
-| **Qué verifica** | *(pendiente)* |
-| **¿Falla sin mi cambio?** | *(pendiente)* |
+| **Archivo de la prueba** | `api-gateway/src/auth/jwt-auth.guard.spec.ts` (unitaria, la que pide la actividad), `api-gateway/test/token-revocation.e2e-spec.ts` (e2e por HTTP), `api-gateway/src/auth/revoked-token.store.spec.ts` (fail-open) y `auth-service/tests/test_auth.py` (logout). |
+| **Comando para ejecutarla** | `cd api-gateway && npx jest jwt-auth.guard` y `npx jest --config ./test/jest-e2e.json` |
+| **Qué verifica** | Lo que exige el enunciado: **el guard rechaza un token cuyo `jti` está en la lista de revocados y acepta uno que no lo está.** Además: que el 401 por revocación es distinguible del de token inválido, que revocar una sesión no afecta a la de otro usuario, que un token sin `jti` sigue pasando, y que no se consulta Redis si la firma es inválida. El e2e prueba el mínimo viable completo — **la misma petición con el mismo token pasa de 200 a 401**. |
+| **¿Falla sin mi cambio?** | **Sí.** Lo comprobé quitando *solo* la consulta de revocación de `jwt-auth.guard.ts` y dejando todo lo demás igual: 3 tests unitarios y los 3 e2e fallan. Salida completa en `prueba-falla-sin-el-cambio.txt`; la misma ejecución con el cambio, en `prueba-pasa-con-el-cambio.txt`. |
+
+**Sin mi cambio** (`prueba-falla-sin-el-cambio.txt`):
+
+```
+● JwtAuthGuard › lista de sesiones revocadas › rechaza un token cuyo jti está en la lista de revocados
+● JwtAuthGuard › lista de sesiones revocadas › distingue el 401 por revocación del 401 por token inválido
+● JwtAuthGuard › lista de sesiones revocadas › confía en el contrato del store: la política de fallo no vive aquí
+Tests:       3 failed, 10 passed, 13 total
+
+● Revocación de sesión (e2e) › la MISMA petición con el MISMO token pasa de 200 a 401 tras revocarlo
+● Revocación de sesión (e2e) › el 401 por revocación se distingue del 401 por token inválido
+● Revocación de sesión (e2e) › revocar la sesión de un usuario no afecta al token vigente de otro
+Tests:       3 failed, 3 total
+```
+
+**Con mi cambio** (`prueba-pasa-con-el-cambio.txt`):
+
+```
+--- npx jest (unitarios) ---
+Test Suites: 4 passed, 4 total
+Tests:       29 passed, 29 total
+
+--- npx jest --config ./test/jest-e2e.json (e2e) ---
+Test Suites: 6 passed, 6 total
+Tests:       26 passed, 26 total
+```
+
+**auth-service** (44 tests, requiere Mongo y Redis levantados):
+
+```
+$ TEST_MONGO_URI="mongodb://localhost:27019" poetry run pytest tests/ -q
+............................................                             [100%]
+44 passed in 38.24s
+```
 
 ---
 
