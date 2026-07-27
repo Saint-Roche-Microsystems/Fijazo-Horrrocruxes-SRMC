@@ -357,3 +357,6 @@ graph TB
 
 ## 🏷️ Tags de entrega
 - `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 26/07/2026
+
+### Examen final — Frederick Tipán
+[enlace](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/61)
