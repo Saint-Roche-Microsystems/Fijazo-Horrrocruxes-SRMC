@@ -255,7 +255,7 @@ sequenceDiagram
     Prog->>Bets: GET /internal/bets?user_id= + X-Internal-Key
     Bets-->>Prog: 200 {items, total} (paginado)
     Prog->>Prog: Mongo: materializa stats/rango/logros
-    Prog--)MQ: ack (tras persistir; si falla, vuelve a la cola)
+    Prog--)MQ: ack (sólo tras persistir, si falla vuelve a la cola)
 ```
 
 ### Diagrama final
