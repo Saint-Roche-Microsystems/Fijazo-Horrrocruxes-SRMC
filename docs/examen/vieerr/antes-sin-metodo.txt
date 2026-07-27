@@ -1,0 +1,30 @@
+# Evidencia ANTES — la consulta 'perfil de usuario' no existe en el contrato TCP
+
+$ date
+2026-07-27T12:23:30Z
+
+$ git -C users-service log -1 --format='%h %s'
+24cbe71 Merge pull request #2 from Saint-Roche-Microsystems/T-038-frontend/wire-gateway
+
+## 1. El contrato TCP de users-service solo expone un patron
+$ grep -rn "@MessagePattern" users-service/src
+users-service/src/users/users.messages.controller.ts:15:  @MessagePattern('users.validate')
+
+## 2. progression-service resuelve el username contra SU PROPIA Mongo (colección vacía)
+$ grep -rn "MongoUserRepository" progression-service/src/progression_service/api/deps.py
+progression-service/src/progression_service/api/deps.py:32:    MongoUserRepository,
+progression-service/src/progression_service/api/deps.py:86:        MongoUserRepository(db),
+progression-service/src/progression_service/api/deps.py:101:        MongoUserRepository(db),
+progression-service/src/progression_service/api/deps.py:123:        StatisticsService(bets, MongoStatisticsRepository(db), MongoUserRepository(db)),
+progression-service/src/progression_service/api/deps.py:125:        MongoUserRepository(db),
+
+$ grep -n "username = user.username" -B2 -A1 progression-service/src/progression_service/application/services/statistics_service.py
+35-
+36-        user = await self._users.get_by_id(user_id)
+37:        username = user.username if user else ""
+38-
+
+## 3. Esa colección 'users' no existe en la base de progression-service:
+   docker-compose.yml -> progression-service MONGO_DB_NAME=progression_service (mongo-progression)
+   docker-compose.yml -> users-service       MONGO_DB_NAME=users_service      (mongo-users)
+   => user_repository.get_by_id() siempre devuelve None => username="" y account_age_days=0
