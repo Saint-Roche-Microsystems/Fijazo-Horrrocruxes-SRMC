@@ -29,12 +29,13 @@ El sistema gestiona apuestas deportivas y el progreso/historial de cada usuario,
 - **bets-service (FastAPI):** apuestas simples y parlays (CRUD), cálculo de cuotas combinadas/retorno potencial, import/export Excel.
 - **progression-service (FastAPI):** estadísticas, rachas, logros y ranking derivados de las apuestas de cada usuario.
 - **API Gateway (NestJS):** punto único de entrada, valida JWT y hace proxy por prefijo de ruta hacia cada microservicio.
+- **[fijazo](https://github.com/Saint-Roche-Microsystems/Fijazo-Frontend) (React + TypeScript + Vite):** frontend, consume exclusivamente el api-gateway.
 
 ## Stack
 - **Framework:** FastAPI (auth, bets, progression) · NestJS (api-gateway, users)
 - **Síncrono:** TCP (bets-service → users-service) y HTTP (gateway → servicios, users-service → auth-service) · **Eventos:** Redis Streams (auth-service>`security-events`) · **2.º transporte:** RabbitMQ (exchange>`bets.events` → cola `progression.recalc`) · **Contrato:** Schemas compartidos.
 - **Seguridad:** JWT (PyJWT) + `JwtAuthGuard`/`RolesGuard` en el gateway · **Observabilidad:** Sentry
-- **BD:** MongoDB (una base por servicio) · **Contenedores:** Docker Compose · **Estructura:** repo maestro con submódulos git por microservicio
+- **BD:** MongoDB (una base por servicio) · **Contenedores:** Docker Compose · **Estructura:** repo maestro con submódulos git por microservicio (y por el frontend)
 
 ## Cómo ejecutar
 
@@ -53,6 +54,18 @@ docker compose up --build -d
 ```
 
 Levanta todo el sistema, contenerizadas en imagenes de docker con el único puerto público: `3000` (api-gateway).
+
+### Frontend
+
+```bash
+cd fijazo
+cp .env.example .env   # VITE_API_URL apunta al api-gateway (http://localhost:3000)
+npm install
+npm run dev            # http://localhost:5173
+```
+
+El api-gateway debe tener `http://localhost:5173` en su `CORS_ORIGINS` (ya viene así por defecto
+en `api-gateway/.env.example`). Ver [fijazo/README.md](fijazo/README.md) para despliegue en Vercel.
 
 ### Ejecutar en desarrollo
 
