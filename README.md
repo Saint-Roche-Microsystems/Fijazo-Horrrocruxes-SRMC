@@ -61,6 +61,25 @@ node scripts/local_run.mjs
 
 Imprime, servicio por servicio, la secuencia exacta para levantarlo a mano en su propia terminal.
 
+### Tests
+
+Cada microservicio tiene su propia suite, en su submódulo:
+
+```bash
+cd bets-service && poetry run pytest      # ídem auth-service, progression-service
+cd users-service && npm test              # ídem api-gateway
+```
+
+Los tests que cruzan servicios viven en `tests-integration/` y necesitan los contenedores levantados:
+
+```bash
+docker compose -f tests-integration/docker-compose.yml up -d --build
+poetry run pytest tests-integration/ -q
+docker compose -f tests-integration/docker-compose.yml down -v
+```
+
+En la raíz ya no hay código de aplicación ni suite propia: el `pyproject.toml` de la raíz sólo sostiene el utillaje (`scripts/`, `tests-integration/`).
+
 ## Arquitectura
 
 ![Arquitectura del sistema](docs/architecture.png)
