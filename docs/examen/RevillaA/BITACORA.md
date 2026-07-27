@@ -173,6 +173,7 @@ commit `style(progression): recortar docstrings largos` antes de hacer push.
 | `antes-evento-duplicado.txt` | Logs reales de `progression-service` corriendo el código previo (`bb62405`) en un contenedor Docker separado, en la misma red: publiqué el mismo `bet.created` dos veces y las dos veces logueó `"Progresión recalculada por evento."` — el efecto se duplicó. |
 | `despues-evento-duplicado.txt` | Mismo experimento, mismo evento, contra el código con mi cambio: una `"Progresión recalculada por evento."` y un `"Evento descartado: ya se había procesado."` con el `event_key`. |
 | `despues-mongo-processed-events.txt` | Consulta directa a Mongo (`processed_bet_events` y `user_progression`) confirmando una sola clave procesada y un solo documento de progresión para el usuario de prueba. |
+| `kanban-hecho.png` | Tarjeta del issue #58 (T-040) en el proyecto Fijazo-To-Do, estado **Done**, issue cerrado. |
 
 **Cómo reproducir mi cambio desde cero:**
 
