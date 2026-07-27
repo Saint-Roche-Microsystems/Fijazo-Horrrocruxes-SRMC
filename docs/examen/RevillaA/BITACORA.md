@@ -12,8 +12,8 @@
 | **Actividad asignada** | C — Consumidor asíncrono idempotente |
 | **Rama** | `exam/RevillaA` (repo principal **y** submódulo `progression-service`) |
 | **Tag** | `examen-RevillaA` |
-| **Pull Request** | Repo principal: https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/59 · Progression-Service: *(enlace a completar tras abrirla)* |
-| **Tarjeta Kanban** | *(enlace a completar)* |
+| **Pull Request** | Repo principal: https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/pull/59 · Progression-Service (código real): https://github.com/Saint-Roche-Microsystems/Progression-Service/pull/3 |
+| **Tarjeta Kanban** | Issue [#58 — T-040](https://github.com/Saint-Roche-Microsystems/Fijazo-Horrrocruxes-SRMC/issues/58) (proyecto Fijazo-To-Do) |
 | **¿Hiciste el Paso 0?** | No aplica — la Actividad C no tiene Paso 0 (solo A y D lo requieren). |
 
 ---
@@ -228,10 +228,9 @@ tests/test_rabbitmq_consumer.py::test_message_without_occurred_at_is_acked_and_n
 
 **No funciona / quedó incompleto:**
 - No abrí una cola de mensajes muertos (DLQ) para los errores no transitorios; siguen descartándose con log, igual que antes de mi cambio (ver Pregunta 3).
-- No até la tarjeta Kanban ni el PR del submódulo `Progression-Service` en el momento de escribir esto — quedan como acción manual mía fuera de este documento (ver sección 0).
 
 **Cuál era mi siguiente paso:**
-Abrir formalmente el PR de `Progression-Service` (el enlace de creación ya lo tengo), referenciarlo desde la PR #59 del repo principal, mover la tarjeta Kanban a Hecho, y empujar el tag `examen-RevillaA`.
+Mover la tarjeta Kanban (issue #58) a Hecho y empujar el tag `examen-RevillaA` en ambos repositorios.
 
 ---
 
