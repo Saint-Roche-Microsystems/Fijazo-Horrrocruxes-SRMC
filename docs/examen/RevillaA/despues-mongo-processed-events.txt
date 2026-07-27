@@ -1,0 +1,17 @@
+=== processed_bet_events (dedup) ===
+{
+  _id: 'bet.created:6a617db47729546dc1a36341:2026-07-27T12:00:00+00:00',
+  processed_at: ISODate('2026-07-27T13:32:01.961Z')
+}
+=== user_progression para el usuario de la prueba ===
+{
+  _id: ObjectId('6a675dd1b7318ce15ae1a718'),
+  rank_level: 1,
+  rank_name: 'Novato',
+  rank_icon: '🐣',
+  rank_score: 0,
+  rank_updated_at: ISODate('2026-07-27T13:32:01.957Z'),
+  unlocked: {},
+  updated_at: ISODate('2026-07-27T13:35:24.495Z'),
+  user_id: '6a60c83b2a0af5b4ab9745cf'
+}
