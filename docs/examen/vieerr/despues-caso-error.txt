@@ -1,0 +1,25 @@
+# Evidencia DESPUÉS — casos de error del contrato con el código HTTP correcto
+# Sistema en la rama exam/vieerr, gateway en :3010
+
+== A. Usuario inexistente -> NOT_FOUND -> 404 ==
+$ curl -i -s localhost:3010/statistics/000000000000000000000000
+HTTP/1.1 404 Not Found
+{"detail":"Usuario no encontrado."}
+
+== B. user_id mal formado -> INVALID_ARGUMENT -> 400 ==
+$ curl -i -s localhost:3010/statistics/no-es-un-objectid
+HTTP/1.1 400 Bad Request
+{"detail":"user_id ausente o con formato inválido."}
+
+== C. users-service CAÍDO -> 503 acotado, el llamador no se cuelga ==
+# Se pide un usuario SIN estadísticas materializadas, para forzar el recálculo
+# (el que ya las tiene se sirve de la proyección y no necesita el perfil).
+$ docker compose stop users-service
+ Container fijazo-horrrocruxes-srmc-users-service-1  Stopped
+$ curl -i -s localhost:3010/statistics/6a60c83b2a0af5b4ab9745cf
+HTTP/1.1 503 Service Unavailable
+{"detail":"No se pudo resolver el perfil contra users-service: [Errno -5] No address associated with hostname"}
+duración de la respuesta: 4.04s (timeout configurado: 5.0s)
+
+$ docker compose start users-service
+ Container fijazo-horrrocruxes-srmc-users-service-1  Started

@@ -1,0 +1,66 @@
+# Evidencia ANTES — comportamiento en ejecución, sistema en `main` (commit 6ebc68e)
+# Stack: docker compose -p fijazo-base, gateway en :3020
+
+$ date -u
+2026-07-27T12:50:20Z
+
+== Registro (idempotente: si ya existe, 409) ==
+$ curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3020/auth/register ...
+409
+
+== Login ==
+user_id (sub del JWT) = 6a675402372abb799f40bfd6
+
+== 1. Usuario EXISTENTE: GET /statistics/$USER_ID ==
+$ curl -i -s http://localhost:3020/statistics/$USER_ID -H 'Authorization: Bearer $TOKEN'
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+content-type: application/json; charset=utf-8
+Content-Length: 480
+ETag: W/"1e0-40uHysfKTSfP5nE0f4ZzYl3fHZM"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"user_id":"6a675402372abb799f40bfd6","username":"","total_bets":0,"won":0,"lost":0,"void":0,"pending":0,"win_rate":0.0,"total_stake":0.0,"total_return":0.0,"net_profit":0.0,"roi":0.0,"avg_odds":0.0,"avg_stake":0.0,"biggest_win":0.0,"biggest_loss":0.0,"current_streak":0,"best_streak":0,"consistency":0.0,"distinct_sports":0,"distinct_bookmakers":0,"max_consecutive_days":0,"last_activity_at":null,"last_bet_at":null,"ranking_score":0.0,"updated_at":"2026-07-27T12:50:10.733000Z"}
+
+
+== 2. Usuario INEXISTENTE (ObjectId válido que no existe) ==
+$ curl -i -s http://localhost:3020/statistics/000000000000000000000000 -H 'Authorization: Bearer $TOKEN'
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+content-type: application/json; charset=utf-8
+Content-Length: 480
+ETag: W/"1e0-pSvLC4Qlv9aAogBAXz5LFimiUtI"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"user_id":"000000000000000000000000","username":"","total_bets":0,"won":0,"lost":0,"void":0,"pending":0,"win_rate":0.0,"total_stake":0.0,"total_return":0.0,"net_profit":0.0,"roi":0.0,"avg_odds":0.0,"avg_stake":0.0,"biggest_win":0.0,"biggest_loss":0.0,"current_streak":0,"best_streak":0,"consistency":0.0,"distinct_sports":0,"distinct_bookmakers":0,"max_consecutive_days":0,"last_activity_at":null,"last_bet_at":null,"ranking_score":0.0,"updated_at":"2026-07-27T12:50:10.784000Z"}
+
+
+== 3. user_id MAL FORMADO ==
+$ curl -i -s http://localhost:3020/statistics/no-es-un-objectid -H 'Authorization: Bearer $TOKEN'
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+content-type: application/json; charset=utf-8
+Content-Length: 473
+ETag: W/"1d9-ncNCmAMujQwrQZ/9oYUiIB171Zc"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"user_id":"no-es-un-objectid","username":"","total_bets":0,"won":0,"lost":0,"void":0,"pending":0,"win_rate":0.0,"total_stake":0.0,"total_return":0.0,"net_profit":0.0,"roi":0.0,"avg_odds":0.0,"avg_stake":0.0,"biggest_win":0.0,"biggest_loss":0.0,"current_streak":0,"best_streak":0,"consistency":0.0,"distinct_sports":0,"distinct_bookmakers":0,"max_consecutive_days":0,"last_activity_at":null,"last_bet_at":null,"ranking_score":0.0,"updated_at":"2026-07-27T12:50:10.834000Z"}
+
+
+== 4. Ranking global ==
+$ curl -s http://localhost:3020/ranking/top
+{"message":"Token no proporcionado.","error":"Unauthorized","statusCode":401}
+
+== RESUMEN ==
+  usuario existente     -> 200, "username": ""   (el perfil no se resuelve: la colección 'users' de mongo-progression está vacía)
+  usuario inexistente   -> 200 con fila vacía   (no hay forma de distinguir 'no existe')
+  user_id mal formado   -> 200 con fila vacía

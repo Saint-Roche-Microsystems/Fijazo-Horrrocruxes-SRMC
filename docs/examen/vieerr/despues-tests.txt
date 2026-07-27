@@ -1,0 +1,44 @@
+# Salida de las pruebas automatizadas — rama exam/vieerr
+
+## progression-service (consumidor del contrato)
+$ cd progression-service && poetry run pytest -q
+................................................................         [100%]
+64 passed in 2.09s
+
+$ poetry run pytest tests/test_tcp_user_profile_client.py tests/test_statistics_user_profile_errors.py -v
+collecting ... collected 13 items
+
+tests/test_tcp_user_profile_client.py::test_parses_profile_response PASSED [  7%]
+tests/test_tcp_user_profile_client.py::test_not_found_becomes_a_domain_not_found PASSED [ 15%]
+tests/test_tcp_user_profile_client.py::test_invalid_argument_becomes_a_domain_invalid_argument PASSED [ 23%]
+tests/test_tcp_user_profile_client.py::test_accepts_the_wrapped_error_shape PASSED [ 30%]
+tests/test_tcp_user_profile_client.py::test_untyped_error_becomes_unavailable PASSED [ 38%]
+tests/test_tcp_user_profile_client.py::test_connection_refused_becomes_unavailable PASSED [ 46%]
+tests/test_tcp_user_profile_client.py::test_timeout_becomes_unavailable PASSED [ 53%]
+tests/test_tcp_user_profile_client.py::test_reads_a_frame_whose_message_has_accents PASSED [ 61%]
+tests/test_tcp_user_profile_client.py::test_reads_a_profile_whose_username_has_accents PASSED [ 69%]
+tests/test_statistics_user_profile_errors.py::test_existing_user_gets_the_username_from_the_contract PASSED [ 76%]
+tests/test_statistics_user_profile_errors.py::test_unknown_user_is_404_not_an_empty_row PASSED [ 84%]
+tests/test_statistics_user_profile_errors.py::test_malformed_user_id_is_400 PASSED [ 92%]
+tests/test_statistics_user_profile_errors.py::test_users_service_down_is_503_not_500 PASSED [100%]
+
+============================== 13 passed in 1.70s ==============================
+
+## users-service (extremo dueño del contrato)
+$ cd users-service && npx jest tcp-user-profile
+
+PASS src/users/tcp-user-profile.e2e.spec.ts (11.686 s)
+  users.profile (contrato TCP)
+    ✓ devuelve el perfil de identidad de un usuario existente (34 ms)
+    ✓ no expone el email ni el hash de la contraseña (8 ms)
+    ✓ un usuario inexistente viaja como NOT_FOUND, no como respuesta vacía (9 ms)
+    ✓ un user_id con formato inválido viaja como INVALID_ARGUMENT (4 ms)
+    ✓ un user_id ausente viaja como INVALID_ARGUMENT (11 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        12.161 s, estimated 16 s
+Ran all test suites matching /tcp-user-profile/i.
+
+# (esta suite necesita Redis levantado: UsersModule arrastra el consumer de security-events)

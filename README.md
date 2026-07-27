@@ -357,3 +357,16 @@ graph TB
 
 ## 🏷️ Tags de entrega
 - `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 26/07/2026
+---
+
+### Examen final — Olivier Paspuel
+
+**Actividad B — Nuevo salto síncrono con contrato.** El contrato TCP de users-service
+gana un método nuevo, `users.profile`, y progression-service pasa a consumirlo: el
+`username` del ranking y la fecha de alta con la que se calcula la antigüedad de la cuenta
+dejan de leerse de una colección `users` heredada del monolito —vacía en el despliegue
+real— y salen del servicio que es dueño del dato. Los errores del contrato
+(`NOT_FOUND`, `INVALID_ARGUMENT`) se traducen a 404 y 400 en vez de a 500 o a una fila con
+el nombre en blanco.
+
+Bitácora, evidencias y pruebas: [`docs/examen/vieerr/BITACORA.md`](docs/examen/vieerr/BITACORA.md)

@@ -153,6 +153,10 @@ services:
       # Las apuestas son de bets-service: este servicio las lee por su API interna.
       BETS_SERVICE_URL: http://bets-service:8002
       BETS_SERVICE_TIMEOUT_SECONDS: "10.0"
+      # La identidad es de users-service: el perfil se resuelve por TCP (users.profile).
+      USERS_SERVICE_TCP_HOST: users-service
+      USERS_SERVICE_TCP_PORT: "3011"
+      USERS_SERVICE_TIMEOUT_SECONDS: "5.0"
       # Consumer de la cola que alimenta bets-service (T-026): cierra el circuito async.
       RABBITMQ_URL: amqp://fijazo:fijazo@rabbitmq:5672/
       PROGRESSION_RECALC_QUEUE: progression.recalc
@@ -165,8 +169,10 @@ services:
       rabbitmq:
         condition: service_healthy
       # Solo ordena el arranque: si bets-service no está, este servicio levanta igual y el
-      # recálculo responde 503 hasta que vuelva.
+      # recálculo responde 503 hasta que vuelva. Lo mismo para users-service.
       bets-service:
+        condition: service_started
+      users-service:
         condition: service_started
     restart: unless-stopped
 
