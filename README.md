@@ -357,3 +357,18 @@ graph TB
 
 ## 🏷️ Tags de entrega
 - `v1-avance1` — 23/07/2026 · `v2-avance2` — 23/07/2026 · `v3-final` — 26/07/2026
+
+---
+
+### Examen final — Antonio Revilla
+
+Actividad C — Consumidor asíncrono idempotente. `ProgressionRecalcConsumer`
+(progression-service) descarta ahora una entrega repetida de `bets.events` en vez de
+recalcular de más: RabbitMQ garantiza "al menos una vez", así que el mismo evento puede
+reentregarse, y antes ninguna capa lo detectaba.
+
+- Bitácora: [`docs/examen/RevillaA/BITACORA.md`](docs/examen/RevillaA/BITACORA.md)
+- Rama: `exam/RevillaA` · Tag: `examen-RevillaA`
+- Código real en el submódulo `progression-service` (`exam/RevillaA` en
+  [Progression-Service](https://github.com/Saint-Roche-Microsystems/Progression-Service));
+  este repositorio solo mueve el puntero del submódulo.

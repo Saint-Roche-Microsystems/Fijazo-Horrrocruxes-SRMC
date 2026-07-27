@@ -1,0 +1,473 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\revil\AppData\Local\pypoetry\Cache\virtualenvs\progression-service-ozZ05-kz-py3.14\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\tmp-pbefore
+configfile: pyproject.toml
+plugins: anyio-4.14.2, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 15 items
+
+tests/test_rabbitmq_consumer.py::test_recalculates_and_acks_on_bet_created FAILED [  6%]
+tests/test_rabbitmq_consumer.py::test_handles_updated_and_deleted_too FAILED [ 13%]
+tests/test_rabbitmq_consumer.py::test_malformed_body_is_acked_and_never_recalculates FAILED [ 20%]
+tests/test_rabbitmq_consumer.py::test_message_without_user_id_is_acked FAILED [ 26%]
+tests/test_rabbitmq_consumer.py::test_unknown_event_type_is_ignored_and_acked FAILED [ 33%]
+tests/test_rabbitmq_consumer.py::test_bets_source_unavailable_requeues_instead_of_dropping FAILED [ 40%]
+tests/test_rabbitmq_consumer.py::test_requeue_waits_the_cooldown_before_returning FAILED [ 46%]
+tests/test_rabbitmq_consumer.py::test_unexpected_error_is_discarded_without_requeue FAILED [ 53%]
+tests/test_rabbitmq_consumer.py::test_a_failing_message_does_not_stop_the_next_one FAILED [ 60%]
+tests/test_rabbitmq_consumer.py::test_request_id_from_the_event_reaches_the_recalculation FAILED [ 66%]
+tests/test_rabbitmq_consumer.py::test_event_without_request_id_still_gets_one FAILED [ 73%]
+tests/test_rabbitmq_consumer.py::test_duplicate_event_recalculates_only_once FAILED [ 80%]
+tests/test_rabbitmq_consumer.py::test_two_distinct_events_recalculate_twice FAILED [ 86%]
+tests/test_rabbitmq_consumer.py::test_message_without_bet_id_is_acked_and_never_recalculates FAILED [ 93%]
+tests/test_rabbitmq_consumer.py::test_message_without_occurred_at_is_acked_and_never_recalculates FAILED [100%]
+
+================================== FAILURES ===================================
+__________________ test_recalculates_and_acks_on_bet_created __________________
+
+    async def test_recalculates_and_acks_on_bet_created():
+        service = RecordingService()
+        message = message_for("bet.created")
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:98: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B441D30>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+____________________ test_handles_updated_and_deleted_too _____________________
+
+    async def test_handles_updated_and_deleted_too():
+        for event_type in ("bet.updated", "bet.deleted"):
+            service = RecordingService()
+    
+>           await consumer_for(service).handle(message_for(event_type))
+                  ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:109: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B481090>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+_____________ test_malformed_body_is_acked_and_never_recalculates _____________
+
+    async def test_malformed_body_is_acked_and_never_recalculates():
+        service = RecordingService()
+        message = FakeMessage(b"esto no es json")
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B481A90>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+____________________ test_message_without_user_id_is_acked ____________________
+
+    async def test_message_without_user_id_is_acked():
+        service = RecordingService()
+        message = message_for(user_id="")
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B407950>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+________________ test_unknown_event_type_is_ignored_and_acked _________________
+
+    async def test_unknown_event_type_is_ignored_and_acked():
+        service = RecordingService()
+        message = message_for("bet.archived")
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B518640>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+__________ test_bets_source_unavailable_requeues_instead_of_dropping __________
+
+    async def test_bets_source_unavailable_requeues_instead_of_dropping():
+        service = RecordingService(raises=BetSourceUnavailableError("bets-service caído"))
+        message = message_for()
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4D0CB0>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+______________ test_requeue_waits_the_cooldown_before_returning _______________
+
+    async def test_requeue_waits_the_cooldown_before_returning():
+        service = RecordingService(raises=BetSourceUnavailableError("bets-service caído"))
+>       consumer = consumer_for(service, cooldown=0.05)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:160: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4A1BF0>
+cooldown = 0.05, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+_____________ test_unexpected_error_is_discarded_without_requeue ______________
+
+    async def test_unexpected_error_is_discarded_without_requeue():
+        service = RecordingService(raises=RuntimeError("fallo inesperado"))
+        message = message_for()
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4A2470>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+______________ test_a_failing_message_does_not_stop_the_next_one ______________
+
+    async def test_a_failing_message_does_not_stop_the_next_one():
+        broken = RecordingService(raises=RuntimeError("fallo inesperado"))
+>       consumer_broken = consumer_for(broken)
+                          ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4F9750>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+__________ test_request_id_from_the_event_reaches_the_recalculation ___________
+
+    async def test_request_id_from_the_event_reaches_the_recalculation():
+        service = RecordingService()
+    
+>       await consumer_for(service).handle(message_for(request_id="trace-me-123"))
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4FA450>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+________________ test_event_without_request_id_still_gets_one _________________
+
+    async def test_event_without_request_id_still_gets_one():
+        service = RecordingService()
+    
+>       await consumer_for(service).handle(message_for(request_id=None))
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:203: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4DE120>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+_________________ test_duplicate_event_recalculates_only_once _________________
+
+    async def test_duplicate_event_recalculates_only_once():
+        """Caso mínimo viable de la Actividad C: dos entregas del mismo evento, un solo efecto."""
+    
+        service = RecordingService()
+        processed_events = FakeProcessedEventRepository()
+>       consumer = consumer_for(service, processed_events=processed_events)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:213: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4DF4D0>
+cooldown = 0.0
+processed_events = <tests.test_rabbitmq_consumer.FakeProcessedEventRepository object at 0x000002863B4DF5C0>
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+_________________ test_two_distinct_events_recalculate_twice __________________
+
+    async def test_two_distinct_events_recalculate_twice():
+        service = RecordingService()
+>       consumer = consumer_for(service, processed_events=FakeProcessedEventRepository())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:226: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4884B0>
+cooldown = 0.0
+processed_events = <tests.test_rabbitmq_consumer.FakeProcessedEventRepository object at 0x000002863B488130>
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+_________ test_message_without_bet_id_is_acked_and_never_recalculates _________
+
+    async def test_message_without_bet_id_is_acked_and_never_recalculates():
+        service = RecordingService()
+        message = message_for(bet_id="")
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B4A4BB0>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+______ test_message_without_occurred_at_is_acked_and_never_recalculates _______
+
+    async def test_message_without_occurred_at_is_acked_and_never_recalculates():
+        service = RecordingService()
+        message = message_for(occurred_at=None)
+    
+>       await consumer_for(service).handle(message)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_rabbitmq_consumer.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = <tests.test_rabbitmq_consumer.RecordingService object at 0x000002863B51EEA0>
+cooldown = 0.0, processed_events = None
+
+    def consumer_for(
+        service: RecordingService,
+        cooldown: float = 0.0,
+        processed_events: FakeProcessedEventRepository | None = None,
+    ):
+>       return ProgressionRecalcConsumer(
+            queue=None,
+            service_factory=lambda: service,
+            processed_events=processed_events or FakeProcessedEventRepository(),
+            cooldown_seconds=cooldown,
+        )
+E       TypeError: ProgressionRecalcConsumer.__init__() got an unexpected keyword argument 'processed_events'
+
+tests\test_rabbitmq_consumer.py:86: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_rabbitmq_consumer.py::test_recalculates_and_acks_on_bet_created
+FAILED tests/test_rabbitmq_consumer.py::test_handles_updated_and_deleted_too
+FAILED tests/test_rabbitmq_consumer.py::test_malformed_body_is_acked_and_never_recalculates
+FAILED tests/test_rabbitmq_consumer.py::test_message_without_user_id_is_acked
+FAILED tests/test_rabbitmq_consumer.py::test_unknown_event_type_is_ignored_and_acked
+FAILED tests/test_rabbitmq_consumer.py::test_bets_source_unavailable_requeues_instead_of_dropping
+FAILED tests/test_rabbitmq_consumer.py::test_requeue_waits_the_cooldown_before_returning
+FAILED tests/test_rabbitmq_consumer.py::test_unexpected_error_is_discarded_without_requeue
+FAILED tests/test_rabbitmq_consumer.py::test_a_failing_message_does_not_stop_the_next_one
+FAILED tests/test_rabbitmq_consumer.py::test_request_id_from_the_event_reaches_the_recalculation
+FAILED tests/test_rabbitmq_consumer.py::test_event_without_request_id_still_gets_one
+FAILED tests/test_rabbitmq_consumer.py::test_duplicate_event_recalculates_only_once
+FAILED tests/test_rabbitmq_consumer.py::test_two_distinct_events_recalculate_twice
+FAILED tests/test_rabbitmq_consumer.py::test_message_without_bet_id_is_acked_and_never_recalculates
+FAILED tests/test_rabbitmq_consumer.py::test_message_without_occurred_at_is_acked_and_never_recalculates
+============================= 15 failed in 0.31s ==============================
